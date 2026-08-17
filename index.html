@@ -130,7 +130,8 @@ body.locked{overflow:hidden}
 .crumb{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .crumb button{font-size:13.5px;color:var(--accent);font-weight:600}
 .spknow{background:#fff3d0;border-radius:8px;box-shadow:0 0 0 4px #fff3d0}
-.wnow{background:var(--accent);color:#fff;border-radius:4px;padding:0 3px}
+.wnow{background:var(--accent);color:#fff;border-radius:3px;padding:0;
+  box-shadow:0 0 0 2px var(--accent)}   /* тень вместо отступов — строка не перестраивается */
 #plbar{position:fixed;left:8px;right:8px;bottom:calc(58px + env(safe-area-inset-bottom));z-index:45;
   margin:0 auto;max-width:544px;background:#2c1e14;color:#fff;border-radius:16px;padding:10px 12px 6px;
   box-shadow:0 6px 24px rgba(0,0,0,.32)}
@@ -2676,7 +2677,10 @@ function bibleSearch(q) {
 const PL = { units: [], words: [], unitStart: [], i: -1, wi: 0, off: 0,
              on: false, paused: false, drag: false, rate: parseFloat(store.get('rate') || '0.92'),
              t0: 0, startChar: 0, timer: null,
-             cps: parseFloat(store.get('cps') || '14') };
+             cps: 14, gotRange: false, lastGi: 0 };
+function cpsKey() { return 'cps_' + (state.voice || 'default'); }
+function loadCps() { PL.cps = parseFloat(store.get(cpsKey()) || '14') || 14; }
+function saveCps() { store.set(cpsKey(), PL.cps.toFixed(2)); }
 
 function esc2(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
@@ -2715,7 +2719,13 @@ function showWord(gi) {
     clearMark();
     u.el.dataset.plain = u.text;
     u.el.classList.add('spknow');
-    try { u.el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { u.el.scrollIntoView(); }
+    try {
+      const r = u.el.getBoundingClientRect();
+      const h = window.innerHeight || 700;
+      if (r.top < 70 || r.bottom > h - 150) {          // прокручиваем, только если ушёл из виду
+        u.el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    } catch (e) {}
   }
   const txt = u.el.dataset.plain || u.text;
   u.el.innerHTML = esc2(txt.slice(0, w.ci)) + '<span class="wnow">' +
@@ -2734,6 +2744,7 @@ function speakFromWord(gi) {
   const w = PL.words[gi]; if (!w) { playStop(); return; }
   PL.i = w.u; PL.off = w.ci; PL.on = true; PL.paused = false;
   PL.startChar = w.ci; PL.t0 = Date.now();
+  PL.gotRange = false; PL.lastGi = gi;
   showWord(gi);
   startTicker();
   speakUnit(PL.units[w.u].text.slice(w.ci));
@@ -2775,6 +2786,15 @@ function speakUnit(text) {
 }
 window.__ttsDone = function () {
   if (!PL.on || PL.paused) return;
+  // голос дочитал кусок — теперь точно известно, сколько знаков в секунду он читает
+  try {
+    const sec = (Date.now() - PL.t0) / 1000;
+    const chars = (PL.units[PL.i].text.length - PL.startChar);
+    if (sec > 0.8 && chars > 25) {
+      const obs = chars / sec / (PL.rate || 1);
+      if (obs > 3 && obs < 50) { PL.cps = PL.cps * 0.4 + obs * 0.6; saveCps(); }
+    }
+  } catch (e) {}
   const nextUnit = PL.i + 1;
   if (nextUnit >= PL.units.length) { playStop(); return; }
   speakFromWord(PL.unitStart[nextUnit]);
@@ -2790,8 +2810,23 @@ function startTicker() {
   PL.timer = setInterval(function () {
     if (!PL.on || PL.paused || PL.drag) return;
     const sec = (Date.now() - PL.t0) / 1000;
-    const ch = PL.startChar + sec * PL.cps * PL.rate;
-    const gi = wordIndexAt(PL.i, ch);
+    const total = Math.max(1, PL.units[PL.i].text.length - PL.startChar);
+    let predSec = total / (PL.cps * PL.rate);
+
+    // Голос читает дольше, чем мы предполагали — значит он медленнее. Сбавляем на ходу.
+    if (!PL.gotRange && sec > predSec * 1.05) {
+      PL.cps = Math.max(4, PL.cps * 0.85); saveCps();
+      predSec = total / (PL.cps * PL.rate);
+    }
+
+    let frac = sec / predSec;
+    // пока движок молчит о словах, не добегаем до конца куска: ждём сигнала об окончании
+    if (!PL.gotRange) frac = Math.min(frac, 0.85);
+    frac = Math.min(frac, 1);
+
+    let gi = wordIndexAt(PL.i, PL.startChar + frac * total);
+    // если движок сообщает слова — не уходим от него дальше чем на три слова
+    if (PL.gotRange && gi > PL.lastGi + 3) gi = PL.lastGi + 3;
     if (gi > PL.wi) { showWord(gi); syncBar(gi); }
   }, 110);
 }
@@ -2810,6 +2845,7 @@ window.__ttsRange = function (s) {
     }
   }
   const gi = wordIndexAt(PL.i, real);
+  PL.gotRange = true; PL.lastGi = gi;
   showWord(gi); syncBar(gi);
 };
 
@@ -3071,7 +3107,7 @@ function openSettings() {
     </div>
 
     <div class="block"><h3>Голос озвучки</h3>
-      ${list.length ? `<select id="vsel" onchange="state.voice=this.value;store.set('voice',this.value);speakSample()">
+      ${list.length ? `<select id="vsel" onchange="changeVoice(this.value)">
           ${list.map(v => `<option value="${esc(v.name)}"${v.name === state.voice ? ' selected' : ''}>${esc(v.label)}</option>`).join('')}
         </select>
         <p class="hint">Голоса с пометкой «из сети» звучат заметно живее: они синтезируются нейросетью, а не собираются из кусочков записи.</p>`
@@ -3111,13 +3147,19 @@ function openSettings() {
     <div class="block"><h3>Прочее</h3>
       <button class="rowbtn" onclick="exportNotes()">📤 Выгрузить заметки и избранное</button>
       <button class="rowbtn" onclick="closeVerse();openRoleScreen()">🔄 Сменить роль</button>
-      <p class="hint" style="margin-top:12px">Версия 12. Синодальный перевод — общественное достояние. «Современный» — редакция синодального текста, «Простыми словами» — пересказ смысла.</p>
+      <p class="hint" style="margin-top:12px">Версия 11. Синодальный перевод — общественное достояние. «Современный» — редакция синодального текста, «Простыми словами» — пересказ смысла.</p>
     </div>`;
   document.getElementById('detail').classList.add('open');
   document.getElementById('detail').scrollTop = 0;
   document.body.classList.add('locked');
 }
 
+function changeVoice(v) {
+  playStop();
+  state.voice = v; store.set('voice', v);
+  loadCps();                  // у нового голоса свой темп чтения
+  speakSample();
+}
 function speakSample() {
   const box = document.getElementById('sampleBox');
   if (!box) return;
@@ -3363,6 +3405,7 @@ function exportNotes(){
 }
 
 /* ================= СТАРТ ================= */
+loadCps();
 try{
   if(state.role && ROLE_NAME[state.role]){
     document.getElementById('roleScreen').style.display='none';
