@@ -342,6 +342,7 @@ jobs:
           import android.graphics.Color;
           import android.os.Bundle;
           import android.speech.tts.TextToSpeech;
+          import android.speech.tts.UtteranceProgressListener;
           import android.view.View;
           import android.webkit.JavascriptInterface;
           import android.webkit.ValueCallback;
@@ -383,6 +384,14 @@ jobs:
                       public void onInit(int status) {
                           if (status == TextToSpeech.SUCCESS) {
                               try { tts.setLanguage(new Locale("ru", "RU")); } catch (Exception e) { }
+                              tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                                  @Override public void onStart(String id) { }
+                                  @Override public void onDone(String id) { js("window.__ttsDone&&window.__ttsDone()"); }
+                                  @Override public void onError(String id) { js("window.__ttsDone&&window.__ttsDone()"); }
+                                  @Override public void onRangeStart(String id, int start, int end, int frame) {
+                                      js("window.__ttsRange&&window.__ttsRange(" + start + "," + end + ")");
+                                  }
+                              });
                               ttsReady = true;
                           }
                       }
@@ -390,22 +399,10 @@ jobs:
 
                   web.addJavascriptInterface(new Object() {
                       @JavascriptInterface
-                      public void speak(String text) {
+                      public void speakUnit(String text) {
                           if (!ttsReady || text == null) return;
-                          tts.stop();
-                          int max = 3500;
-                          int i = 0, part = 0;
-                          while (i < text.length()) {
-                              int end = Math.min(i + max, text.length());
-                              if (end < text.length()) {
-                                  int cut = text.lastIndexOf('.', end);
-                                  if (cut > i + 200) end = cut + 1;
-                              }
-                              tts.speak(text.substring(i, end),
-                                      part == 0 ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD,
-                                      null, "dvoe" + part);
-                              i = end; part++;
-                          }
+                          if (text.length() > 3800) text = text.substring(0, 3800);
+                          tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "dvoe");
                       }
 
                       @JavascriptInterface
@@ -417,6 +414,14 @@ jobs:
                   } else {
                       web.restoreState(savedInstanceState);
                   }
+              }
+
+              private void js(final String code) {
+                  runOnUiThread(new Runnable() {
+                      @Override public void run() {
+                          try { web.evaluateJavascript(code, null); } catch (Exception e) { }
+                      }
+                  });
               }
 
               @Override
