@@ -2674,7 +2674,9 @@ function bibleSearch(q) {
 }
 /* ---------- Проигрыватель: полоса перемотки по словам ---------- */
 const PL = { units: [], words: [], unitStart: [], i: -1, wi: 0, off: 0,
-             on: false, paused: false, drag: false, rate: parseFloat(store.get('rate') || '0.92') };
+             on: false, paused: false, drag: false, rate: parseFloat(store.get('rate') || '0.92'),
+             t0: 0, startChar: 0, timer: null,
+             cps: parseFloat(store.get('cps') || '14') };
 
 function esc2(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
@@ -2731,7 +2733,9 @@ function clearMark() {
 function speakFromWord(gi) {
   const w = PL.words[gi]; if (!w) { playStop(); return; }
   PL.i = w.u; PL.off = w.ci; PL.on = true; PL.paused = false;
+  PL.startChar = w.ci; PL.t0 = Date.now();
   showWord(gi);
+  startTicker();
   speakUnit(PL.units[w.u].text.slice(w.ci));
   drawBar();
 }
@@ -2775,13 +2779,38 @@ window.__ttsDone = function () {
   if (nextUnit >= PL.units.length) { playStop(); return; }
   speakFromWord(PL.unitStart[nextUnit]);
 };
-window.__ttsRange = function (s) {
-  if (!PL.on || PL.drag) return;
-  const gi = wordIndexAt(PL.i, s + PL.off);
-  showWord(gi);
+function syncBar(gi) {
   const r = document.getElementById('plrange');
   if (r) r.value = gi;
   updatePos();
+}
+/* Собственные часы: ведут подсветку между сообщениями движка и когда их нет вовсе */
+function startTicker() {
+  clearInterval(PL.timer);
+  PL.timer = setInterval(function () {
+    if (!PL.on || PL.paused || PL.drag) return;
+    const sec = (Date.now() - PL.t0) / 1000;
+    const ch = PL.startChar + sec * PL.cps * PL.rate;
+    const gi = wordIndexAt(PL.i, ch);
+    if (gi > PL.wi) { showWord(gi); syncBar(gi); }
+  }, 110);
+}
+function stopTicker() { clearInterval(PL.timer); PL.timer = null; }
+
+/* Сообщение движка — самое точное, по нему же подстраиваем скорость часов */
+window.__ttsRange = function (s) {
+  if (!PL.on || PL.drag) return;
+  const real = s + PL.off;
+  const sec = (Date.now() - PL.t0) / 1000;
+  if (sec > 0.5 && real - PL.startChar > 8) {
+    const obs = (real - PL.startChar) / sec / (PL.rate || 1);
+    if (obs > 4 && obs < 45) {
+      PL.cps = PL.cps * 0.7 + obs * 0.3;      // плавное усреднение
+      store.set('cps', PL.cps.toFixed(2));
+    }
+  }
+  const gi = wordIndexAt(PL.i, real);
+  showWord(gi); syncBar(gi);
 };
 
 /* Управление */
@@ -2797,6 +2826,7 @@ function playUnitAt(ui) {
 }
 function playStop() {
   PL.on = false; PL.paused = false; PL.i = -1;
+  stopTicker();
   try {
     if (window.AndroidTTS && window.AndroidTTS.stop) window.AndroidTTS.stop();
     else if ('speechSynthesis' in window) speechSynthesis.cancel();
@@ -2806,7 +2836,7 @@ function playStop() {
 function playPause() {
   if (!PL.on) return;
   if (!PL.paused) {
-    PL.paused = true;
+    PL.paused = true; stopTicker();
     try { if (window.AndroidTTS) window.AndroidTTS.stop(); else speechSynthesis.cancel(); } catch (e) {}
     drawBar();
   } else {
@@ -2815,9 +2845,17 @@ function playPause() {
   }
 }
 function playRate() {
-  const steps = [0.75, 0.98, 1.25, 1.5];
-  PL.rate = steps[(steps.indexOf(PL.rate) + 1) % steps.length];
+  const steps = [0.75, 0.92, 1.15, 1.4];
+  let i = 0, best = 9;
+  steps.forEach(function (v, k) { const d = Math.abs(v - PL.rate); if (d < best) { best = d; i = k; } });
+  applyRate(steps[(i + 1) % steps.length]);
+}
+/* Меняем скорость — и сразу пересобираем чтение с текущего слова, иначе подсветка разъедется */
+function applyRate(v) {
+  PL.rate = Math.round(v * 100) / 100;
+  store.set('rate', PL.rate);
   if (PL.on && !PL.paused) speakFromWord(PL.wi); else drawBar();
+  const rv = document.getElementById('rv'); if (rv) rv.textContent = PL.rate.toFixed(2);
 }
 function stopSpeak() { playStop(); }
 
@@ -2926,7 +2964,7 @@ function drawBar() {
       '<button onclick="seekCommit(Math.max(0,PL.wi-12))">⏪</button>' +
       '<button onclick="seekCommit(Math.min(PL.words.length-1,PL.wi+12))">⏩</button>' +
       '<span class="pos" id="plpos"></span>' +
-      '<button onclick="playRate()" class="rate">' + (PL.rate === 0.98 ? '1' : PL.rate) + '×</button>' +
+      '<button onclick="playRate()" class="rate">' + PL.rate.toFixed(2).replace(/0$/, '') + '×</button>' +
       '<button onclick="playStop()">✕</button>' +
     '</div>';
   updatePos();
@@ -3052,11 +3090,13 @@ function openSettings() {
     <div class="block"><h3>Скорость и тон</h3>
       <div class="srow"><span>Скорость</span>
         <input type="range" min="60" max="140" value="${Math.round(PL.rate * 100)}"
-               oninput="PL.rate=this.value/100;store.set('rate',PL.rate);document.getElementById('rv').textContent=PL.rate.toFixed(2)">
+               oninput="document.getElementById('rv').textContent=(this.value/100).toFixed(2)"
+               onchange="applyRate(this.value/100)">
         <b id="rv">${PL.rate.toFixed(2)}</b></div>
       <div class="srow"><span>Тон</span>
         <input type="range" min="75" max="125" value="${Math.round(state.pitch * 100)}"
-               oninput="state.pitch=this.value/100;store.set('pitch',state.pitch);document.getElementById('pv').textContent=state.pitch.toFixed(2)">
+               oninput="state.pitch=this.value/100;store.set('pitch',state.pitch);document.getElementById('pv').textContent=state.pitch.toFixed(2)"
+               onchange="if(PL.on&&!PL.paused)speakFromWord(PL.wi)">
         <b id="pv">${state.pitch.toFixed(2)}</b></div>
       <p class="hint">Спокойное чтение обычно получается на скорости около 0,90 и тоне около 0,95.</p>
     </div>
@@ -3071,7 +3111,7 @@ function openSettings() {
     <div class="block"><h3>Прочее</h3>
       <button class="rowbtn" onclick="exportNotes()">📤 Выгрузить заметки и избранное</button>
       <button class="rowbtn" onclick="closeVerse();openRoleScreen()">🔄 Сменить роль</button>
-      <p class="hint" style="margin-top:12px">Версия 11. Синодальный перевод — общественное достояние. «Современный» — редакция синодального текста, «Простыми словами» — пересказ смысла.</p>
+      <p class="hint" style="margin-top:12px">Версия 12. Синодальный перевод — общественное достояние. «Современный» — редакция синодального текста, «Простыми словами» — пересказ смысла.</p>
     </div>`;
   document.getElementById('detail').classList.add('open');
   document.getElementById('detail').scrollTop = 0;
