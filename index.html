@@ -131,14 +131,20 @@ body.locked{overflow:hidden}
 .crumb button{font-size:13.5px;color:var(--accent);font-weight:600}
 .spknow{background:#fff3d0;border-radius:8px;box-shadow:0 0 0 4px #fff3d0}
 .wnow{background:var(--accent);color:#fff;border-radius:4px;padding:0 3px}
-#plbar{position:fixed;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom));z-index:45;
-  margin:0 auto;max-width:560px;display:flex;align-items:center;gap:4px;
-  background:#2c1e14;color:#fff;border-radius:14px;padding:8px 10px;
-  box-shadow:0 6px 24px rgba(0,0,0,.28)}
-#plbar button{color:#fff;font-size:19px;padding:8px 10px;border-radius:10px;line-height:1}
-#plbar button.big{font-size:23px}
-#plbar button.rate{font-size:13px;font-weight:700;border:1px solid rgba(255,255,255,.3)}
-#plbar .pos{flex:1;text-align:center;font-size:13px;color:#e0cdb8;font-weight:600}
+#plbar{position:fixed;left:8px;right:8px;bottom:calc(58px + env(safe-area-inset-bottom));z-index:45;
+  margin:0 auto;max-width:544px;background:#2c1e14;color:#fff;border-radius:16px;padding:10px 12px 6px;
+  box-shadow:0 6px 24px rgba(0,0,0,.32)}
+#plbar .plrow{display:flex;align-items:center;gap:2px;margin-top:2px}
+#plbar button{color:#fff;font-size:18px;padding:7px 9px;border-radius:10px;line-height:1}
+#plbar button.big{font-size:22px}
+#plbar button.rate{font-size:13px;font-weight:700;border:1px solid rgba(255,255,255,.3);padding:5px 8px}
+#plbar .pos{flex:1;text-align:center;font-size:12px;color:#e0cdb8;font-weight:600}
+#plrange{-webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;margin:0;display:block}
+#plrange::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:rgba(255,255,255,.25)}
+#plrange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;
+  border-radius:50%;background:#e8c89a;margin-top:-8px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+#plrange::-moz-range-track{height:6px;border-radius:3px;background:rgba(255,255,255,.25)}
+#plrange::-moz-range-thumb{width:22px;height:22px;border:none;border-radius:50%;background:#e8c89a}
 .vnum{cursor:pointer}
 .steps{list-style:none;padding:0;margin:0}
 .steps li{background:var(--card);border:1px solid var(--line);border-radius:12px;
@@ -232,7 +238,7 @@ window.onerror=function(m,s,l,c){var e=document.getElementById('errbar');
     <button class="rowbtn" onclick="exportNotes()">📤 Выгрузить мои заметки и избранное</button>
     <button class="rowbtn" onclick="openRoleScreen();closeAbout()">🔄 Сменить роль</button>
     <button class="rowbtn" onclick="closeAbout()">Закрыть</button>
-    <p style="margin-top:14px;font-size:12.5px;color:#9b8a7b">Версия 7 · Работает в Chrome, Safari, Firefox. Если что-то не открывается — сделайте скриншот этого экрана.</p>
+    <p style="margin-top:14px;font-size:12.5px;color:#9b8a7b">Версия 6 · Работает в Chrome, Safari, Firefox. Если что-то не открывается — сделайте скриншот этого экрана.</p>
     <p style="margin-top:8px;font-size:12.5px">Переводы: Синодальный перевод (общественное достояние), «Современный» — редакция синодального текста на нынешнем русском языке, «Простыми словами» — свободный пересказ смысла, не перевод. Подключение лицензионных переводов (НРП, РБО и др.) возможно на следующем этапе.</p>
   </div>
 </div>
@@ -2106,61 +2112,109 @@ function bibleSearch(q) {
   }
   return out;
 }
-/* ---------- Проигрыватель с перемоткой и подсветкой ---------- */
-const PL = { units: [], i: -1, on: false, paused: false };
+/* ---------- Проигрыватель: полоса перемотки по словам ---------- */
+const PL = { units: [], words: [], unitStart: [], i: -1, wi: 0, off: 0,
+             on: false, paused: false, drag: false, rate: 0.98 };
 
 function esc2(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
-/* Собираем куски для чтения: всё, что помечено классом spk, по порядку */
+/* Куски для чтения: всё, что помечено классом spk, по порядку */
 function collectUnits() {
-  const els = Array.prototype.slice.call(document.querySelectorAll('.spk'));
-  return els.filter(e => (e.textContent || '').trim().length > 1)
-            .map(e => ({ el: e, text: (e.textContent || '').trim() }));
+  return Array.prototype.slice.call(document.querySelectorAll('.spk'))
+    .filter(e => (e.textContent || '').trim().length > 1)
+    .map(e => ({ el: e, text: (e.textContent || '').replace(/\s+/g, ' ').trim() }));
+}
+/* Раскладываем весь экран на слова: по ним и движется полоса */
+function buildWords() {
+  PL.words = []; PL.unitStart = [];
+  PL.units.forEach((u, ui) => {
+    PL.unitStart[ui] = PL.words.length;
+    const re = /\S+/g; let m;
+    while ((m = re.exec(u.text)) !== null) {
+      PL.words.push({ u: ui, ci: m.index, len: m[0].length });
+    }
+  });
+}
+function wordIndexAt(ui, charIndex) {
+  let lo = PL.unitStart[ui], hi = (ui + 1 < PL.unitStart.length ? PL.unitStart[ui + 1] : PL.words.length) - 1;
+  let best = lo;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (PL.words[mid].ci <= charIndex) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
+  }
+  return best;
 }
 
-function playFrom(i) {
-  if (!PL.units.length) return;
-  if (i < 0) i = 0;
-  if (i >= PL.units.length) { playStop(); return; }
-  clearMark();
-  PL.i = i; PL.on = true; PL.paused = false;
-  const u = PL.units[i];
-  u.el.dataset.plain = u.text;
-  u.el.classList.add('spknow');
-  try { u.el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { u.el.scrollIntoView(); }
-  speakUnit(u.text);
-  drawBar();
-}
-function speakUnit(text) {
-  try {
-    if (window.AndroidTTS && window.AndroidTTS.speakUnit) { window.AndroidTTS.speakUnit(text); return; }
-    if (!('speechSynthesis' in window)) { alert('Это устройство не умеет читать вслух.'); playStop(); return; }
-    speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = 'ru-RU'; utt.rate = PL.rate || 0.98;
-    utt.onend = () => { if (PL.on && !PL.paused) window.__ttsDone(); };
-    utt.onboundary = e => { if (e.name === 'word' || e.charIndex != null)
-        window.__ttsRange(e.charIndex, e.charIndex + (e.charLength || 0)); };
-    speechSynthesis.speak(utt);
-  } catch (e) { playStop(); }
-}
-window.__ttsDone = function () { if (PL.on && !PL.paused) playFrom(PL.i + 1); };
-window.__ttsRange = function (s, e) {
-  const u = PL.units[PL.i]; if (!u) return;
+/* Подсветка: кусок целиком + текущее слово внутри него */
+function showWord(gi) {
+  const w = PL.words[gi]; if (!w) return;
+  const u = PL.units[w.u]; if (!u) return;
+  if (!u.el.classList.contains('spknow')) {
+    clearMark();
+    u.el.dataset.plain = u.text;
+    u.el.classList.add('spknow');
+    try { u.el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { u.el.scrollIntoView(); }
+  }
   const txt = u.el.dataset.plain || u.text;
-  if (!(s >= 0 && e > s && e <= txt.length)) return;
-  u.el.innerHTML = esc2(txt.slice(0, s)) + '<span class="wnow">' + esc2(txt.slice(s, e)) + '</span>' + esc2(txt.slice(e));
-};
+  u.el.innerHTML = esc2(txt.slice(0, w.ci)) + '<span class="wnow">' +
+                   esc2(txt.slice(w.ci, w.ci + w.len)) + '</span>' + esc2(txt.slice(w.ci + w.len));
+  PL.wi = gi;
+}
 function clearMark() {
   document.querySelectorAll('.spknow').forEach(el => {
     if (el.dataset.plain) el.textContent = el.dataset.plain;
     el.classList.remove('spknow');
   });
 }
-function playStart(btn) {
+
+/* Чтение с конкретного слова */
+function speakFromWord(gi) {
+  const w = PL.words[gi]; if (!w) { playStop(); return; }
+  PL.i = w.u; PL.off = w.ci; PL.on = true; PL.paused = false;
+  showWord(gi);
+  speakUnit(PL.units[w.u].text.slice(w.ci));
+  drawBar();
+}
+function speakUnit(text) {
+  try {
+    if (window.AndroidTTS && window.AndroidTTS.speakUnit) {
+      window.AndroidTTS.setRate ? window.AndroidTTS.setRate(PL.rate) : 0;
+      window.AndroidTTS.speakUnit(text); return;
+    }
+    if (!('speechSynthesis' in window)) { alert('Это устройство не умеет читать вслух.'); playStop(); return; }
+    speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'ru-RU'; utt.rate = PL.rate;
+    utt.onend = () => { if (PL.on && !PL.paused) window.__ttsDone(); };
+    utt.onboundary = e => { if (e.charIndex != null) window.__ttsRange(e.charIndex, e.charIndex + (e.charLength || 0)); };
+    speechSynthesis.speak(utt);
+  } catch (e) { playStop(); }
+}
+window.__ttsDone = function () {
+  if (!PL.on || PL.paused) return;
+  const nextUnit = PL.i + 1;
+  if (nextUnit >= PL.units.length) { playStop(); return; }
+  speakFromWord(PL.unitStart[nextUnit]);
+};
+window.__ttsRange = function (s) {
+  if (!PL.on || PL.drag) return;
+  const gi = wordIndexAt(PL.i, s + PL.off);
+  showWord(gi);
+  const r = document.getElementById('plrange');
+  if (r) r.value = gi;
+  updatePos();
+};
+
+/* Управление */
+function playStart() {
   PL.units = collectUnits();
   if (!PL.units.length) return;
-  playFrom(0);
+  buildWords();
+  speakFromWord(0);
+}
+function playUnitAt(ui) {
+  PL.units = collectUnits(); buildWords();
+  speakFromWord(PL.unitStart[ui] || 0);
 }
 function playStop() {
   PL.on = false; PL.paused = false; PL.i = -1;
@@ -2172,45 +2226,59 @@ function playStop() {
 }
 function playPause() {
   if (!PL.on) return;
-  PL.paused = !PL.paused;
-  try {
-    if (window.AndroidTTS) { if (PL.paused) window.AndroidTTS.stop(); else { PL.paused = false; playFrom(PL.i); return; } }
-    else if (PL.paused) speechSynthesis.pause(); else speechSynthesis.resume();
-  } catch (e) {}
-  drawBar();
+  if (!PL.paused) {
+    PL.paused = true;
+    try { if (window.AndroidTTS) window.AndroidTTS.stop(); else speechSynthesis.cancel(); } catch (e) {}
+    drawBar();
+  } else {
+    PL.paused = false;
+    speakFromWord(PL.wi);
+  }
 }
-function playNext() { if (PL.on) playFrom(PL.i + 1); }
-function playPrev() { if (PL.on) playFrom(Math.max(0, PL.i - 1)); }
 function playRate() {
   const steps = [0.75, 0.98, 1.25, 1.5];
-  const cur = steps.indexOf(PL.rate || 0.98);
-  PL.rate = steps[(cur + 1) % steps.length];
-  if (PL.on) playFrom(PL.i);
-  drawBar();
+  PL.rate = steps[(steps.indexOf(PL.rate) + 1) % steps.length];
+  if (PL.on && !PL.paused) speakFromWord(PL.wi); else drawBar();
 }
 function stopSpeak() { playStop(); }
 
-/* Полоса проигрывателя внизу экрана */
-function playUnitAt(i) {
-  PL.units = collectUnits();
-  playFrom(i);
+/* Перетаскивание полосы */
+function seekPreview(v) {
+  PL.drag = true;
+  showWord(+v);
+  updatePos();
 }
+function seekCommit(v) {
+  PL.drag = false;
+  if (PL.paused) { PL.wi = +v; showWord(+v); updatePos(); return; }
+  speakFromWord(+v);
+}
+function updatePos() {
+  const el = document.getElementById('plpos');
+  if (!el) return;
+  const w = PL.words[PL.wi];
+  const unitNo = w ? (w.u + 1) : 0;
+  el.textContent = 'слово ' + (PL.wi + 1) + ' из ' + PL.words.length +
+                   ' · ' + (state.tab === 'bible' ? 'стих ' : 'часть ') + unitNo;
+}
+
+/* Панель проигрывателя */
 function drawBar() {
   let bar = document.getElementById('plbar');
   if (!PL.on) { if (bar) bar.remove(); return; }
-  if (!bar) {
-    bar = document.createElement('div');
-    bar.id = 'plbar';
-    document.body.appendChild(bar);
-  }
-  const pos = (PL.i + 1) + ' / ' + PL.units.length;
+  if (!bar) { bar = document.createElement('div'); bar.id = 'plbar'; document.body.appendChild(bar); }
   bar.innerHTML =
-    '<button onclick="playPrev()" title="Назад">⏮</button>' +
-    '<button onclick="playPause()" class="big">' + (PL.paused ? '▶' : '⏸') + '</button>' +
-    '<button onclick="playNext()" title="Вперёд">⏭</button>' +
-    '<span class="pos">' + pos + '</span>' +
-    '<button onclick="playRate()" class="rate">' + (PL.rate || 0.98).toFixed(2).replace('0.98', '1') + '×</button>' +
-    '<button onclick="playStop()" title="Стоп">✕</button>';
+    '<input type="range" id="plrange" min="0" max="' + Math.max(0, PL.words.length - 1) + '" value="' + PL.wi + '" ' +
+      'oninput="seekPreview(this.value)" onchange="seekCommit(this.value)">' +
+    '<div class="plrow">' +
+      '<button onclick="playPause()" class="big">' + (PL.paused ? '▶' : '⏸') + '</button>' +
+      '<button onclick="seekCommit(Math.max(0,PL.wi-12))">⏪</button>' +
+      '<button onclick="seekCommit(Math.min(PL.words.length-1,PL.wi+12))">⏩</button>' +
+      '<span class="pos" id="plpos"></span>' +
+      '<button onclick="playRate()" class="rate">' + (PL.rate === 0.98 ? '1' : PL.rate) + '×</button>' +
+      '<button onclick="playStop()">✕</button>' +
+    '</div>';
+  updatePos();
 }
 /* ---------- Экран Библии ---------- */
 function bibleOpen(b, c) {
