@@ -221,7 +221,7 @@ window.onerror=function(m,s,l,c){var e=document.getElementById('errbar');
     <button class="rowbtn" onclick="exportNotes()">📤 Выгрузить мои заметки и избранное</button>
     <button class="rowbtn" onclick="openRoleScreen();closeAbout()">🔄 Сменить роль</button>
     <button class="rowbtn" onclick="closeAbout()">Закрыть</button>
-    <p style="margin-top:14px;font-size:12.5px;color:#9b8a7b">Версия 5 · Работает в Chrome, Safari, Firefox. Если что-то не открывается — сделайте скриншот этого экрана.</p>
+    <p style="margin-top:14px;font-size:12.5px;color:#9b8a7b">Версия 6 · Работает в Chrome, Safari, Firefox. Если что-то не открывается — сделайте скриншот этого экрана.</p>
     <p style="margin-top:8px;font-size:12.5px">Переводы: Синодальный перевод (общественное достояние), «Современный» — редакция синодального текста на нынешнем русском языке, «Простыми словами» — свободный пересказ смысла, не перевод. Подключение лицензионных переводов (НРП, РБО и др.) возможно на следующем этапе.</p>
   </div>
 </div>
@@ -2113,8 +2113,17 @@ function speak(text, btn) {
     speechSynthesis.speak(u); speaking = true; setSpeakBtn(btn, true);
   } catch (e) { speaking = false; }
 }
+function speakChapter(btn) {
+  const bk = BB[state.bb], ch = state.bc;
+  const vv = bk.c[ch - 1] || [];
+  speak(bk.n + ', глава ' + ch + '. ' + vv.join(' '), btn);
+}
+function speakEl(id, btn) {
+  const el = document.getElementById(id);
+  if (el) speak(el.textContent || '', btn);
+}
 function setSpeakBtn(btn, on) {
-  if (btn) btn.innerHTML = on ? '⏹ Остановить' : '🔊 Слушать';
+  if (btn) btn.innerHTML = on ? '⏹ Остановить' : (btn.dataset.lbl || '🔊 Слушать');
 }
 function stopSpeak() {
   try {
@@ -2169,11 +2178,9 @@ function renderBible(m) {
 
   if (state.bmode === 'text' && state.bb != null) {
     const bk = BB[state.bb], ch = state.bc, vv = bk.c[ch - 1] || [];
-    const plain = vv.join(' ');
     html += '<div class="crumb"><button onclick="bibleBooks()">Книги</button>›' +
       '<button onclick="bibleChapters(' + state.bb + ')">' + esc(bk.n) + '</button>›<b>Глава ' + ch + '</b></div>';
-    html += '<button class="playbtn" id="pb" onclick="speak(' + JSON.stringify(JSON.stringify(bk.n + ', глава ' + ch + '. ')).slice(1, -1) + '+document.getElementById(\'chtext\').textContent, this)">🔊 Слушать</button>';
-    html += '<div id="chtext" style="display:none">' + esc(plain) + '</div>';
+    html += '<button class="playbtn" onclick="speakChapter(this)">🔊 Слушать главу</button>';
     html += '<div style="margin-top:14px">' + vv.map((tx, i) =>
       '<div class="vrow" id="v' + (i + 1) + '"><span class="vnum">' + (i + 1) + '</span><span>' + esc(tx) + '</span></div>').join('') + '</div>';
     html += '<div class="chnav">' +
@@ -2344,6 +2351,8 @@ function openAnswer(id){
     </div>
     <h2 class="qtitle">${esc(a.q)}</h2>
     <div class="shortans">${esc(a.a)}</div>
+    <button class="playbtn" style="margin-top:12px" data-lbl="🔊 Слушать" onclick="speakEl('listenBlock',this)">🔊 Слушать</button>
+    <div id="listenBlock" style="position:absolute;left:-9999px">${esc(a.q + '. ' + a.a + ' ' + a.body.join(' '))}</div>
     <div class="block"><h3>Разбор</h3>
       ${a.body.map(p=>`<p class="deepp">${esc(p)}</p>`).join('')}</div>
     <div class="block"><h3>Что говорит Писание</h3>
@@ -2388,6 +2397,8 @@ function openVerse(id){
       ${['syn','mod','simple'].map(t=>`<button class="${state.trans===t?'sel':''}" onclick="setTrans('${t}')">${TRANS_NAME[t]}</button>`).join('')}
     </div>
     <div class="verse" id="verseText">${esc(v[state.trans])}</div>
+    <button class="playbtn" style="margin-top:12px" data-lbl="🔊 Слушать" onclick="speakEl('listenBlock',this)">🔊 Слушать</button>
+    <div id="listenBlock" style="position:absolute;left:-9999px">${esc(v.ref + '. ' + v[state.trans] + ' Что это значит. ' + v.meaning)}</div>
     <div class="block"><h3>Что это значит</h3><p>${esc(v.meaning)}</p></div>
     ${v.deep? `<div class="block"><h3>Подробный разбор</h3>
       ${v.deep.map(p=>`<p class="deepp">${esc(p)}</p>`).join('')}</div>`:''}
@@ -2412,7 +2423,7 @@ function openVerse(id){
   document.getElementById('detail').scrollTop = 0;
   document.body.classList.add('locked');
 }
-function closeVerse(){ document.getElementById('detail').classList.remove('open');
+function closeVerse(){ stopSpeak(); document.getElementById('detail').classList.remove('open');
   document.body.classList.remove('locked'); openId=null; render(); }
 function setTrans(t){
   state.trans = t; store.set('trans', t);
