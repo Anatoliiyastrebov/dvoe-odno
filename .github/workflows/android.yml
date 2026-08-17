@@ -406,6 +406,11 @@ jobs:
                       }
 
                       @JavascriptInterface
+                      public void setRate(float rate) {
+                          if (ttsReady && rate > 0.2f && rate < 3f) tts.setSpeechRate(rate);
+                      }
+
+                      @JavascriptInterface
                       public void stop() { if (ttsReady) tts.stop(); }
                   }, "AndroidTTS");
 
