@@ -146,10 +146,11 @@ body.locked{overflow:hidden}
 #plrange::-moz-range-track{height:6px;border-radius:3px;background:rgba(255,255,255,.25)}
 #plrange::-moz-range-thumb{width:22px;height:22px;border:none;border-radius:50%;background:#e8c89a}
 .vnum{cursor:pointer}
-#vsel{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);
+#vsel{width:100%;margin-bottom:4px;padding:12px;border-radius:12px;border:1px solid var(--line);
   background:var(--card);font:inherit;font-size:15px;margin-bottom:10px}
 .srow{display:flex;align-items:center;gap:12px;margin-bottom:10px}
 .srow span{font-size:14px;color:var(--muted);min-width:78px;font-weight:600}
+.srow b{font-size:13px;color:var(--accent);min-width:38px;text-align:right}
 .srow input[type=range]{flex:1;accent-color:var(--accent)}
 .hint{font-size:12.5px;color:var(--muted);margin:8px 0 2px}
 .steps{list-style:none;padding:0;margin:0}
@@ -218,7 +219,7 @@ window.onerror=function(m,s,l,c){var e=document.getElementById('errbar');
   <header>
     <div class="hrow">
       <button class="badge" id="roleBadge" onclick="openRoleScreen()"></button>
-      <button class="iconbtn" onclick="openAbout()" title="О приложении">i</button>
+      <button class="iconbtn" onclick="openSettings()" title="Настройки">⚙</button>
     </div>
   </header>
 
@@ -3011,6 +3012,81 @@ function bindBQ() {
   if (state.bq) i.focus();
 }
 
+
+/* ================= НАСТРОЙКИ ================= */
+const SAMPLES = [
+  { t: 'Так каждый из вас да любит свою жену, как самого себя; а жена да боится своего мужа.', l: 'Стих' },
+  { t: 'Любовь долготерпит, милосердствует, любовь не завидует, любовь не превозносится, не гордится, не бесчинствует, не ищет своего, не раздражается, не мыслит зла.', l: 'Длинный отрывок' },
+  { t: 'Скажи о проблеме один раз, спокойно и по делу. Повторять по десять раз — уже не напоминание.', l: 'Совет простыми словами' }
+];
+let sampleIdx = 0;
+
+function openSettings() {
+  playStop();
+  const list = getVoices();
+  if (list.length && !state.voice) { state.voice = bestVoice(list); store.set('voice', state.voice); }
+  const isAndroid = !!(window.AndroidTTS && window.AndroidTTS.speakUnit);
+  document.getElementById('dwrap').innerHTML = `
+    <div class="dhead">
+      <button class="iconbtn" style="margin:0" onclick="closeVerse()">←</button>
+      <div class="ref">Настройки</div>
+    </div>
+
+    <div class="block"><h3>Голос озвучки</h3>
+      ${list.length ? `<select id="vsel" onchange="state.voice=this.value;store.set('voice',this.value);speakSample()">
+          ${list.map(v => `<option value="${esc(v.name)}"${v.name === state.voice ? ' selected' : ''}>${esc(v.label)}</option>`).join('')}
+        </select>
+        <p class="hint">Голоса с пометкой «из сети» звучат заметно живее: они синтезируются нейросетью, а не собираются из кусочков записи.</p>`
+        : `<p class="hint">Список голосов пуст. Нажмите «Проверить голос» — после первого запуска озвучки голоса появятся здесь.</p>`}
+    </div>
+
+    <div class="block"><h3>Проверить, как читает</h3>
+      <div class="chips" style="margin-bottom:10px">
+        ${SAMPLES.map((s, i) => `<button class="chip big ${i === sampleIdx ? 'sel' : ''}" onclick="sampleIdx=${i};openSettings()">${esc(s.l)}</button>`).join('')}
+      </div>
+      <div class="verse spk" id="sampleBox">${esc(SAMPLES[sampleIdx].t)}</div>
+      <button class="playbtn" style="margin-top:12px" onclick="speakSample()">🔊 Прослушать</button>
+      <p class="hint">Во время проверки видно подсветку слов — так же, как при чтении глав.</p>
+    </div>
+
+    <div class="block"><h3>Скорость и тон</h3>
+      <div class="srow"><span>Скорость</span>
+        <input type="range" min="60" max="140" value="${Math.round(PL.rate * 100)}"
+               oninput="PL.rate=this.value/100;store.set('rate',PL.rate);document.getElementById('rv').textContent=PL.rate.toFixed(2)">
+        <b id="rv">${PL.rate.toFixed(2)}</b></div>
+      <div class="srow"><span>Тон</span>
+        <input type="range" min="75" max="125" value="${Math.round(state.pitch * 100)}"
+               oninput="state.pitch=this.value/100;store.set('pitch',state.pitch);document.getElementById('pv').textContent=state.pitch.toFixed(2)">
+        <b id="pv">${state.pitch.toFixed(2)}</b></div>
+      <p class="hint">Спокойное чтение обычно получается на скорости около 0,90 и тоне около 0,95.</p>
+    </div>
+
+    ${isAndroid ? `<div class="block"><h3>Живые голоса</h3>
+      <button class="rowbtn" onclick="AndroidTTS.installVoiceData&&AndroidTTS.installVoiceData()">⬇️ Скачать голосовые данные</button>
+      <button class="rowbtn" onclick="AndroidTTS.openTtsSettings&&AndroidTTS.openTtsSettings()">⚙️ Настройки синтеза речи телефона</button>
+      <p class="hint">Самое сильное улучшение звучания даёт не приложение, а движок. Откройте настройки телефона, выберите движок «Речевые сервисы Google» и скачайте русские голоса высокого качества. После этого вернитесь сюда — новые голоса появятся в списке.</p>
+      </div>` : `<div class="block"><h3>Живые голоса</h3>
+      <p class="hint">В браузере используются голоса, установленные в системе. В приложении для Android можно скачать дополнительные голоса прямо из настроек.</p></div>`}
+
+    <div class="block"><h3>Прочее</h3>
+      <button class="rowbtn" onclick="exportNotes()">📤 Выгрузить заметки и избранное</button>
+      <button class="rowbtn" onclick="closeVerse();openRoleScreen()">🔄 Сменить роль</button>
+      <p class="hint" style="margin-top:12px">Версия 11. Синодальный перевод — общественное достояние. «Современный» — редакция синодального текста, «Простыми словами» — пересказ смысла.</p>
+    </div>`;
+  document.getElementById('detail').classList.add('open');
+  document.getElementById('detail').scrollTop = 0;
+  document.body.classList.add('locked');
+}
+
+function speakSample() {
+  const box = document.getElementById('sampleBox');
+  if (!box) return;
+  if (PL.on) { playStop(); return; }
+  PL.units = [{ el: box, text: SAMPLES[sampleIdx].t }];
+  buildWords();
+  speakFromWord(0);
+}
+
 /* ================= НАВИГАЦИЯ ================= */
 function pickRole(r){
   state.role = r; store.set('role', r);
@@ -3018,11 +3094,7 @@ function pickRole(r){
   renderBadge(); setTab('texts');
 }
 function openRoleScreen(){ document.getElementById('roleScreen').style.display='flex'; }
-function openAbout(){
-  document.getElementById('about').classList.add('open');
-  renderVoiceBox();
-  try { if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = renderVoiceBox; } catch(e){}
-}
+function openAbout(){ openSettings(); }
 function closeAbout(){ document.getElementById('about').classList.remove('open'); }
 function renderBadge(){
   const b = document.getElementById('roleBadge');
