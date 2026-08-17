@@ -406,6 +406,41 @@ jobs:
                       }
 
                       @JavascriptInterface
+                      public String listVoices() {
+                          StringBuilder sb = new StringBuilder("[");
+                          if (!ttsReady) return sb.append("]").toString();
+                          try {
+                              boolean first = true;
+                              for (android.speech.tts.Voice v : tts.getVoices()) {
+                                  if (v == null || v.getLocale() == null) continue;
+                                  if (!"ru".equals(v.getLocale().getLanguage())) continue;
+                                  if (!first) sb.append(",");
+                                  first = false;
+                                  sb.append("{\"n\":\"").append(v.getName().replace("\"", ""))
+                                    .append("\",\"q\":").append(v.getQuality())
+                                    .append(",\"net\":").append(v.isNetworkConnectionRequired() ? "true" : "false")
+                                    .append("}");
+                              }
+                          } catch (Exception e) { }
+                          return sb.append("]").toString();
+                      }
+
+                      @JavascriptInterface
+                      public void setVoice(String name) {
+                          if (!ttsReady || name == null) return;
+                          try {
+                              for (android.speech.tts.Voice v : tts.getVoices()) {
+                                  if (v != null && name.equals(v.getName())) { tts.setVoice(v); return; }
+                              }
+                          } catch (Exception e) { }
+                      }
+
+                      @JavascriptInterface
+                      public void setPitch(float p) {
+                          if (ttsReady && p > 0.3f && p < 2f) tts.setPitch(p);
+                      }
+
+                      @JavascriptInterface
                       public void setRate(float rate) {
                           if (ttsReady && rate > 0.2f && rate < 3f) tts.setSpeechRate(rate);
                       }
