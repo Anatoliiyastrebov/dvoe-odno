@@ -1,0 +1,242 @@
+name: Сборка APK
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'index.html'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Забрать код
+        uses: actions/checkout@v4
+
+      - name: Создать проект Android
+        run: |
+          set -e
+          mkdir -p android/app/src/main/java/app/dvoe
+          mkdir -p android/app/src/main/assets
+          mkdir -p android/app/src/main/res/drawable
+          mkdir -p android/app/src/main/res/mipmap-anydpi-v26
+
+          cp index.html android/app/src/main/assets/index.html
+
+          cat > android/settings.gradle <<'EOF'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "Dvoe"
+          include ':app'
+          EOF
+
+          cat > android/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+          }
+          EOF
+
+          cat > android/gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx3072m
+          EOF
+
+          cat > android/app/build.gradle <<'EOF'
+          plugins { id 'com.android.application' }
+
+          android {
+              namespace 'app.dvoe'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "app.dvoe"
+                  minSdk 26
+                  targetSdk 34
+                  versionCode 3
+                  versionName "3.0"
+              }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+          cat > android/app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher"
+                  android:label="Двое"
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+                      android:windowSoftInputMode="adjustResize">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > android/app/src/main/java/app/dvoe/MainActivity.java <<'EOF'
+          package app.dvoe;
+
+          import android.annotation.SuppressLint;
+          import android.app.Activity;
+          import android.graphics.Color;
+          import android.os.Bundle;
+          import android.view.View;
+          import android.webkit.ValueCallback;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+
+          public class MainActivity extends Activity {
+
+              private WebView web;
+
+              @SuppressLint("SetJavaScriptEnabled")
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  web = new WebView(this);
+                  web.setBackgroundColor(Color.parseColor("#FAF6F0"));
+                  setContentView(web);
+
+                  WebSettings s = web.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setAllowFileAccess(true);
+                  s.setAllowContentAccess(true);
+                  s.setBuiltInZoomControls(false);
+                  s.setDisplayZoomControls(false);
+                  s.setTextZoom(100);
+
+                  web.setWebViewClient(new WebViewClient());
+                  web.setOverScrollMode(View.OVER_SCROLL_NEVER);
+
+                  if (savedInstanceState == null) {
+                      web.loadUrl("file:///android_asset/index.html");
+                  } else {
+                      web.restoreState(savedInstanceState);
+                  }
+              }
+
+              @Override
+              public void onBackPressed() {
+                  web.evaluateJavascript(
+                      "(function(){try{return window.__handleBack?window.__handleBack():false}catch(e){return false}})()",
+                      new ValueCallback<String>() {
+                          @Override
+                          public void onReceiveValue(String value) {
+                              if (!"true".equals(value)) {
+                                  MainActivity.super.onBackPressed();
+                              }
+                          }
+                      });
+              }
+
+              @Override
+              protected void onSaveInstanceState(Bundle outState) {
+                  super.onSaveInstanceState(outState);
+                  web.saveState(outState);
+              }
+          }
+          EOF
+
+          cat > android/app/src/main/res/drawable/ic_bg.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:pathData="M0,0h108v108h-108z" android:fillColor="#4A3524"/>
+          </vector>
+          EOF
+
+          cat > android/app/src/main/res/drawable/ic_fg.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp" android:height="108dp"
+              android:viewportWidth="108" android:viewportHeight="108">
+              <path android:pathData="M46,54m-14,0a14,14 0 1,0 28,0a14,14 0 1,0 -28,0"
+                  android:strokeColor="#E8C89A" android:strokeWidth="5"
+                  android:fillColor="#00000000"/>
+              <path android:pathData="M62,54m-14,0a14,14 0 1,0 28,0a14,14 0 1,0 -28,0"
+                  android:strokeColor="#D9A3B8" android:strokeWidth="5"
+                  android:fillColor="#00000000"/>
+          </vector>
+          EOF
+
+          cat > android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@drawable/ic_bg" />
+              <foreground android:drawable="@drawable/ic_fg" />
+          </adaptive-icon>
+          EOF
+
+          echo "Структура проекта:"
+          find android -type f | sort
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Собрать APK
+        working-directory: android
+        run: gradle assembleDebug --no-daemon --stacktrace
+
+      - name: Подготовить файл
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/dvoe.apk
+          ls -la out
+
+      - name: Приложить APK к сборке
+        uses: actions/upload-artifact@v4
+        with:
+          name: dvoe-apk
+          path: out/dvoe.apk
+          retention-days: 90
+
+      - name: Опубликовать в разделе Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: Двое — установочный файл
+          body: |
+            Приложение «Двое» для Android.
+
+            Как установить:
+            1. Скачайте файл dvoe.apk на телефон.
+            2. Откройте его. Android спросит разрешение установить
+               приложение из этого источника — разрешите.
+            3. Иконка появится на рабочем столе.
+
+            Интернет не нужен: все тексты внутри приложения.
+          files: out/dvoe.apk
+          make_latest: true
