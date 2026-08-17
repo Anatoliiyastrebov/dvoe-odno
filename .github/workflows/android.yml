@@ -385,7 +385,7 @@ jobs:
                           if (status == TextToSpeech.SUCCESS) {
                               try { tts.setLanguage(new Locale("ru", "RU")); } catch (Exception e) { }
                               tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
-                                  @Override public void onStart(String id) { }
+                                  @Override public void onStart(String id) { js("window.__ttsStart&&window.__ttsStart()"); }
                                   @Override public void onDone(String id) { js("window.__ttsDone&&window.__ttsDone()"); }
                                   @Override public void onError(String id) { js("window.__ttsDone&&window.__ttsDone()"); }
                                   @Override public void onRangeStart(String id, int start, int end, int frame) {
