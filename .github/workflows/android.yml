@@ -436,6 +436,29 @@ jobs:
                       }
 
                       @JavascriptInterface
+                      public void openTtsSettings() {
+                          try {
+                              android.content.Intent i = new android.content.Intent("com.android.settings.TTS_SETTINGS");
+                              i.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                              startActivity(i);
+                          } catch (Exception e) {
+                              try {
+                                  startActivity(new android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS));
+                              } catch (Exception e2) { }
+                          }
+                      }
+
+                      @JavascriptInterface
+                      public void installVoiceData() {
+                          try {
+                              android.content.Intent i = new android.content.Intent();
+                              i.setAction(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA);
+                              i.setFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+                              startActivity(i);
+                          } catch (Exception e) { }
+                      }
+
+                      @JavascriptInterface
                       public void setPitch(float p) {
                           if (ttsReady && p > 0.3f && p < 2f) tts.setPitch(p);
                       }
