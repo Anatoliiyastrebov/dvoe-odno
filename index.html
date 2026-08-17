@@ -14,18 +14,44 @@
   --line:#e8ded1; --accent:#8b5e34; --accent-soft:#f3e9dc;
   --wife:#a8577a; --wife-soft:#fbeef4; --husband:#3f6d8e; --husband-soft:#eaf2f8;
   --both:#6b8f5e; --both-soft:#eef5ea; --radius:16px;
+  --bar:#2c1e14; --bar-ink:#e0cdb8; --hl:#fff3d0; --mark:#ffe9a8;
+  --deep:#3a2c22; --soft-ink:#4a3b30;
+  --role1:#2c1e14; --role2:#4a3524; --role3:#6b4a2f;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --serif:Georgia,"Times New Roman",serif;
+}
+/* ЧЁРНО-БЕЛАЯ */
+html[data-theme="mono"]{
+  --bg:#ffffff; --card:#ffffff; --ink:#111111; --muted:#6b6b6b;
+  --line:#dcdcdc; --accent:#111111; --accent-soft:#f0f0f0;
+  --wife:#111; --wife-soft:#f0f0f0; --husband:#111; --husband-soft:#f0f0f0;
+  --both:#111; --both-soft:#f0f0f0; --radius:10px;
+  --bar:#111111; --bar-ink:#cfcfcf; --hl:#ededed; --mark:#d9d9d9;
+  --deep:#222; --soft-ink:#333;
+  --role1:#000000; --role2:#1a1a1a; --role3:#333333;
+}
+/* СОВРЕМЕННАЯ */
+html[data-theme="modern"]{
+  --bg:#f5f5f7; --card:#ffffff; --ink:#1d1d1f; --muted:#86868b;
+  --line:#e8e8ed; --accent:#0071e3; --accent-soft:#eaf3fe;
+  --wife:#d9558a; --wife-soft:#fdeef5; --husband:#0071e3; --husband-soft:#eaf3fe;
+  --both:#30a46c; --both-soft:#e9f7ef; --radius:18px;
+  --bar:#1d1d1f; --bar-ink:#c7c7cc; --hl:#eaf3fe; --mark:#ffe9a8;
+  --deep:#2c2c2e; --soft-ink:#3a3a3c;
+  --role1:#1d1d1f; --role2:#2c2c2e; --role3:#0071e3;
+  --serif:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
 button,.card,.qa,.chip,.roleBtn,.rowbtn{cursor:pointer;touch-action:manipulation}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  font-family:var(--font);
   font-size:16px;line-height:1.5;overscroll-behavior-y:none}
 body{padding-bottom:env(safe-area-inset-bottom)}
 button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 .app{max-width:560px;margin:0 auto;min-height:100vh;position:relative}
 
 /* ---------- Экран выбора роли ---------- */
-#roleScreen{position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;background:linear-gradient(170deg,#2c1e14,#4a3524 60%,#6b4a2f);
+#roleScreen{position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;background:linear-gradient(170deg,var(--role1),var(--role2) 60%,var(--role3));
   color:#fff;display:flex;flex-direction:column;justify-content:center;padding:28px 22px;overflow-y:auto}
 #roleScreen .wrap{max-width:420px;margin:0 auto;width:100%}
 #roleScreen h1{font-size:32px;margin:0 0 6px;letter-spacing:-.5px;font-weight:700}
@@ -40,7 +66,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
 .note{margin-top:20px;font-size:12.5px;color:#c4ae96;line-height:1.5}
 
 /* ---------- Шапка ---------- */
-header{position:sticky;top:0;z-index:20;background:rgba(250,246,240,.94);
+header{position:sticky;top:0;z-index:20;background:var(--bg);
   -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding:10px 16px}
 .hrow{display:flex;align-items:center;gap:10px}
 .badge{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;
@@ -64,6 +90,8 @@ main{padding:14px 16px 96px}
 .star{font-size:18px;line-height:1;padding:2px 4px;opacity:.35}
 .star.on{opacity:1}
 .teaser{margin:6px 0 0;color:var(--muted);font-size:14.5px}
+.teaser.verseline{font-family:var(--serif);font-size:16px;line-height:1.5;
+  color:var(--ink);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .chip{font-size:11.5px;padding:3px 9px;border-radius:999px;background:var(--accent-soft);
   color:var(--accent);font-weight:600}
@@ -87,28 +115,33 @@ body.locked{overflow:hidden}
 .transwitch button{flex:1;font-size:13px;font-weight:600;padding:8px 4px;border-radius:9px;color:var(--accent)}
 .transwitch button.sel{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08);color:var(--ink)}
 .verse{font-size:18.5px;line-height:1.65;background:var(--card);border:1px solid var(--line);
-  border-radius:var(--radius);padding:18px;font-family:Georgia,"Times New Roman",serif}
+  border-radius:var(--radius);padding:18px;font-family:var(--serif)}
 .block{margin-top:18px}
 .block h3{font-size:14px;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);margin:0 0 8px}
 .block p{margin:0;font-size:15.5px;line-height:1.6}
-.deepp{margin:0 0 12px !important;font-size:15.5px;line-height:1.62;color:#3a2c22}
+.deepp{margin:0 0 12px !important;font-size:15.5px;line-height:1.62;color:var(--deep)}
 .deepp:last-child{margin-bottom:0 !important}
 .qa{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden}
 .qq{display:flex;gap:10px;align-items:center;padding:13px 14px;font-size:15px;font-weight:600}
 .qq span:first-child{flex:1}
 .arw{color:var(--accent);transition:.2s}
 .qa.open .arw{transform:rotate(180deg)}
-.aa{display:none;padding:0 14px 14px;font-size:15px;line-height:1.6;color:#4a3b30}
+.aa{display:none;padding:0 14px 14px;font-size:15px;line-height:1.6;color:var(--soft-ink)}
 .qa.open .aa{display:block}
 .card.ans{border-left:4px solid var(--accent)}
 .chip.ansc{background:var(--accent);color:#fff}
 .qtitle{font-size:22px;line-height:1.3;margin:18px 0 12px;letter-spacing:-.3px}
 .shortans{background:var(--accent-soft);border-radius:var(--radius);padding:16px 18px;
-  font-size:17px;line-height:1.55;font-weight:500;color:#4a3524}
+  font-size:17px;line-height:1.55;font-weight:500;color:var(--deep)}
 .refbox{background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:12px 14px;margin-bottom:8px}
 .refbox b{display:block;color:var(--accent);font-size:13.5px;margin-bottom:4px}
-.refbox span{font-size:15px;line-height:1.55;font-family:Georgia,"Times New Roman",serif}
+.refbox span{font-size:15px;line-height:1.55;font-family:var(--serif)}
+.report{background:var(--accent-soft);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px}
+.report .rbig{font-size:22px;font-weight:700;color:var(--accent);letter-spacing:-.3px}
+.report .rsub{font-size:13.5px;color:var(--muted);margin-top:2px}
+.report .chip.big{font-size:13px;padding:7px 11px}
+.report .hint{margin-top:8px}
 .bkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .bkbtn{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 13px;
   text-align:left;font-size:14.5px;font-weight:600}
@@ -116,11 +149,11 @@ body.locked{overflow:hidden}
 .chbtn{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 0;
   text-align:center;font-size:15px;font-weight:600}
 .vrow{display:flex;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line);
-  font-family:Georgia,"Times New Roman",serif;font-size:17.5px;line-height:1.6}
+  font-family:var(--serif);font-size:17.5px;line-height:1.6}
 .vrow:last-child{border-bottom:none}
 .vnum{color:var(--accent);font-weight:700;font-size:12.5px;font-family:-apple-system,sans-serif;
   min-width:26px;padding-top:5px;flex:none}
-.vrow.hit{background:#fff8e6;border-radius:8px;padding-left:6px}
+.vrow.hit{background:var(--hl);border-radius:8px;padding-left:6px}
 .chnav{display:flex;gap:8px;margin:14px 0 4px}
 .chnav button{flex:1;background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:12px;font-size:14.5px;font-weight:600}
@@ -129,21 +162,22 @@ body.locked{overflow:hidden}
   font-size:14.5px;font-weight:600;display:inline-flex;align-items:center;gap:8px}
 .crumb{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .crumb button{font-size:13.5px;color:var(--accent);font-weight:600}
-.spknow{background:#fff3d0;border-radius:8px;box-shadow:0 0 0 4px #fff3d0}
+.spknow{background:var(--hl);border-radius:8px;box-shadow:0 0 0 4px var(--hl)}
 #plbar{position:fixed;left:8px;right:8px;bottom:calc(58px + env(safe-area-inset-bottom));z-index:45;
-  margin:0 auto;max-width:544px;background:#2c1e14;color:#fff;border-radius:16px;padding:10px 12px 6px;
+  margin:0 auto;max-width:544px;background:var(--bar);color:#fff;border-radius:16px;padding:10px 12px 6px;
   box-shadow:0 6px 24px rgba(0,0,0,.32)}
 #plbar .plrow{display:flex;align-items:center;gap:2px;margin-top:2px}
 #plbar button{color:#fff;font-size:18px;padding:7px 9px;border-radius:10px;line-height:1}
 #plbar button.big{font-size:22px}
 #plbar button.rate{font-size:13px;font-weight:700;border:1px solid rgba(255,255,255,.3);padding:5px 8px}
-#plbar .pos{flex:1;text-align:center;font-size:12px;color:#e0cdb8;font-weight:600}
+#plbar .pos{flex:1;text-align:center;font-size:12px;color:var(--bar-ink);font-weight:600}
+#plbar .pos u{text-decoration:none;color:#fff}
 #plrange{-webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;margin:0;display:block}
 #plrange::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:rgba(255,255,255,.25)}
 #plrange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;
-  border-radius:50%;background:#e8c89a;margin-top:-8px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+  border-radius:50%;background:var(--bar-ink);margin-top:-8px;box-shadow:0 2px 6px rgba(0,0,0,.4)}
 #plrange::-moz-range-track{height:6px;border-radius:3px;background:rgba(255,255,255,.25)}
-#plrange::-moz-range-thumb{width:22px;height:22px;border:none;border-radius:50%;background:#e8c89a}
+#plrange::-moz-range-thumb{width:22px;height:22px;border:none;border-radius:50%;background:var(--bar-ink)}
 .vnum{cursor:pointer}
 #vsel{width:100%;margin-bottom:4px;padding:12px;border-radius:12px;border:1px solid var(--line);
   background:var(--card);font:inherit;font-size:15px;margin-bottom:10px}
@@ -152,6 +186,15 @@ body.locked{overflow:hidden}
 .srow b{font-size:13px;color:var(--accent);min-width:38px;text-align:right}
 .srow input[type=range]{flex:1;accent-color:var(--accent)}
 .hint{font-size:12.5px;color:var(--muted);margin:8px 0 2px}
+.skinbtn{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.skinbtn.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.skinbtn b{display:block;font-size:15px}
+.skinbtn i{font-style:normal;font-size:12.5px;color:var(--muted)}
+.sw{width:34px;height:34px;border-radius:9px;flex:none;border:1px solid rgba(0,0,0,.12)}
+.sw-warm{background:linear-gradient(135deg,#faf6f0 50%,#8b5e34 50%)}
+.sw-mono{background:linear-gradient(135deg,#ffffff 50%,#111111 50%)}
+.sw-modern{background:linear-gradient(135deg,#f5f5f7 50%,#0071e3 50%)}
 .steps{list-style:none;padding:0;margin:0}
 .steps li{background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:12px 14px;margin-bottom:8px;font-size:15px;display:flex;gap:10px}
@@ -164,10 +207,10 @@ textarea{width:100%;min-height:90px;border:1px solid var(--line);border-radius:1
 .searchbar{display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--line);
   border-radius:12px;padding:10px 12px;margin-bottom:12px}
 .searchbar input{border:none;outline:none;flex:1;font:inherit;font-size:16px;background:none}
-mark{background:#ffe9a8;border-radius:3px;padding:0 2px}
+mark{background:var(--mark);border-radius:3px;padding:0 2px}
 
 /* ---------- Нижнее меню ---------- */
-nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:rgba(255,255,255,.96);
+nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--card);
   -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-top:1px solid var(--line);
   padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
 .navin{max-width:560px;margin:0 auto;display:flex}
@@ -253,7 +296,7 @@ window.onerror=function(m,s,l,c){var e=document.getElementById('errbar');
 </div>
 
 <!-- Полный текст Библии подключается отдельным файлом; без него приложение работает как раньше -->
-<script src="bible.js"></script>
+<script src="bible.js" defer></script>
 <script>
 /* ================= ДАННЫЕ ================= */
 // Тексты для жены
@@ -2574,8 +2617,9 @@ let state = {
   trans: store.get('trans') || 'syn',
   theme: null,
   query: '',
-  bmode: 'books', bb: null, bc: 1, bq: '',
+  bmode: 'books', bb: null, bc: 1, bq: '', bscope: null,
   voice: store.get('voice') || '', pitch: parseFloat(store.get('pitch') || '1'),
+  skin: store.get('skin') || 'warm',
   favs: JSON.parse(store.get('favs') || '[]'),
   notes: JSON.parse(store.get('notes') || '{}')
 };
@@ -2588,11 +2632,17 @@ const TRANS_NAME = {syn:'Синодальный', mod:'Современный', 
 
 
 /* ================= ПОЛНАЯ БИБЛИЯ ================= */
-const HAS_BIBLE = (typeof BIBLE !== 'undefined') && BIBLE && BIBLE.books && BIBLE.books.length;
-const BB = HAS_BIBLE ? BIBLE.books : [];
-let ntStart = BB.length;
-for (let i = 0; i < BB.length; i++) {
-  if (norm(BB[i].n).indexOf('матф') >= 0) { ntStart = i; break; }
+let BB = [], ntStart = 0, bibleReady = false;
+function initBible() {
+  if (bibleReady) return true;
+  if (typeof BIBLE === 'undefined' || !BIBLE || !BIBLE.books || !BIBLE.books.length) return false;
+  BB = BIBLE.books;
+  ntStart = BB.length;
+  for (let i = 0; i < BB.length; i++) {
+    if (norm(BB[i].n).indexOf('матф') >= 0) { ntStart = i; break; }
+  }
+  bibleReady = true;
+  return true;
 }
 const ALIASES = {
   'быт':'быти','исх':'исход','лев':'левит','чис':'числ','втор':'второзак','нав':'иисуса нав',
@@ -2627,6 +2677,7 @@ function findBook(token, num) {
 }
 /* Разбор ссылки: «Ин 3:16», «1 Кор 13», «От Иоанна 2», «Быт 1:1», «Псалом 22» */
 function parseRef(s) {
+  if (!initBible()) return null;
   let str = norm(s).replace(/[«»"',]/g, ' ')
     .replace(/\bот\b/g, ' ').replace(/\bк\b/g, ' ')
     .replace(/\bсвятое\b|\bблаговествование\b|\bпослание\b|\bкнига\b|\bпророка\b|\bапостола\b/g, ' ')
@@ -2652,11 +2703,50 @@ function parseRef(s) {
   const vs = nums.length > 1 ? nums[1] : 0;
   return { b: bi, c: ch, v: vs };
 }
-function bibleSearch(q) {
+/* Сколько раз слово встречается: всего, в скольких стихах и по книгам */
+function bibleStats(q, scope) {
+  if (!initBible()) return null;
+  const stems = norm(q).split(/[\s,.;:!?]+/).filter(Boolean).map(x => x.length > 5 ? x.slice(0, 5) : x);
+  if (!stems.length) return null;
+  const main = stems[0];
+  const byBook = [];
+  let hits = 0, verses = 0, sHits = 0, sVerses = 0;
+  for (let b = 0; b < BB.length; b++) {
+    let bh = 0, bv = 0;
+    const chs = BB[b].c;
+    for (let c = 0; c < chs.length; c++) {
+      const vv = chs[c];
+      for (let v = 0; v < vv.length; v++) {
+        const low = norm(vv[v]);
+        if (!stems.every(s => low.indexOf(s) >= 0)) continue;
+        const n = low.split(main).length - 1;
+        bh += n; bv++;
+      }
+    }
+    if (bv) byBook.push({ b: b, n: BB[b].n, hits: bh, verses: bv });
+    hits += bh; verses += bv;
+    if (scope != null && b === scope) { sHits = bh; sVerses = bv; }
+  }
+  byBook.sort((x, y) => y.hits - x.hits);
+  return { hits: hits, verses: verses, byBook: byBook, sHits: sHits, sVerses: sVerses };
+}
+function nfmt(n) { try { return n.toLocaleString('ru-RU'); } catch (e) { return '' + n; } }
+function wordForm(n, one, few, many) {
+  const a = n % 100, b = n % 10;
+  if (a > 10 && a < 20) return many;
+  if (b === 1) return one;
+  if (b >= 2 && b <= 4) return few;
+  return many;
+}
+function setScope(b) { state.bscope = (b === '' || b == null) ? null : +b; render(); }
+
+function bibleSearch(q, scope) {
+  if (!initBible()) return [];
   const stems = norm(q).split(/[\s,.;:!?]+/).filter(Boolean).map(x => x.length > 5 ? x.slice(0, 5) : x);
   if (!stems.length) return [];
   const out = [];
   for (let b = 0; b < BB.length && out.length < 120; b++) {
+    if (scope != null && b !== scope) continue;
     const chs = BB[b].c;
     for (let c = 0; c < chs.length && out.length < 120; c++) {
       const vv = chs[c];
@@ -2672,7 +2762,7 @@ function bibleSearch(q) {
   return out;
 }
 /* ---------- Проигрыватель: полоса перемотки по словам ---------- */
-const PL = { units: [], i: -1,
+const PL = { units: [], i: -1, srcKey: '', srcName: '',
              on: false, paused: false, drag: false, rate: parseFloat(store.get('rate') || '0.92'),
              t0: 0, timer: null,
              cps: 11, gotRange: false, lastGi: 0,
@@ -2694,13 +2784,42 @@ function collectUnits() {
     .filter(e => (e.textContent || '').trim().length > 1)
     .map(e => ({ el: e, text: (e.textContent || '').replace(/\s+/g, ' ').trim() }));
 }
+/* Отпечаток экрана: по нему понимаем, вернулись ли мы туда, где идёт чтение */
+function srcKey() {
+  if (document.getElementById('detail').classList.contains('open')) return 'd:' + (openId || '?');
+  if (state.tab === 'bible' && state.bmode === 'text') return 'b:' + state.bb + ':' + state.bc;
+  return 't:' + state.tab;
+}
+function srcName() {
+  if (state.tab === 'bible' && state.bmode === 'text' && BB[state.bb]) return BB[state.bb].n + ' ' + state.bc;
+  return 'чтение';
+}
+/* После перерисовки заново привязываем куски к элементам на экране */
+function attachUnits() {
+  if (!PL.on) return;
+  const same = (srcKey() === PL.srcKey);
+  if (same) {
+    const els = Array.prototype.slice.call(document.querySelectorAll('.spk'))
+      .filter(e => (e.textContent || '').trim().length > 1);
+    if (els.length === PL.units.length) {
+      PL.units.forEach((u, i) => { u.el = els[i]; });
+      if (PL.i >= 0 && PL.units[PL.i] && PL.units[PL.i].el) {
+        clearMark(); PL.units[PL.i].el.classList.add('spknow');
+      }
+    }
+  } else {
+    PL.units.forEach(u => { u.el = null; });   // экран другой — читаем дальше без подсветки
+  }
+  drawBar();
+}
 /* Подсветка текущего куска (стиха или абзаца) */
 function showUnit(ui) {
   const u = PL.units[ui];
   if (!u) return;
-  clearMark();
-  u.el.classList.add('spknow');
   PL.i = ui;
+  clearMark();
+  if (!u.el || !document.body.contains(u.el)) return;
+  u.el.classList.add('spknow');
   try {
     const r = u.el.getBoundingClientRect();
     const h = window.innerHeight || 700;
@@ -2754,6 +2873,18 @@ function speakUnit(text) {
     }
     if (!('speechSynthesis' in window)) { alert('Это устройство не умеет читать вслух.'); playStop(); return; }
     speechSynthesis.cancel();
+    // в браузере список голосов появляется не сразу — ждём и повторяем
+    if (!(speechSynthesis.getVoices() || []).length && !PL.voiceWait) {
+      PL.voiceWait = true;
+      speechSynthesis.onvoiceschanged = function () {
+        PL.voiceWait = false;
+        if (PL.on && !PL.paused) speakUnit(text);
+      };
+      setTimeout(function () {
+        if (PL.voiceWait) { PL.voiceWait = false; if (PL.on && !PL.paused) speakUnit(text); }
+      }, 700);
+      return;
+    }
     const utt = new SpeechSynthesisUtterance(text);
     utt.lang = 'ru-RU'; utt.rate = PL.rate; utt.pitch = state.pitch;
     if (state.voice) {
@@ -2790,10 +2921,14 @@ window.__ttsDone = function () {
 function playStart() {
   PL.units = collectUnits();
   if (!PL.units.length) return;
+  PL.srcKey = srcKey(); PL.srcName = srcName();
   playFrom(0);
 }
 function playUnitAt(ui) {
-  PL.units = collectUnits();
+  if (!PL.on || srcKey() !== PL.srcKey) {
+    PL.units = collectUnits();
+    PL.srcKey = srcKey(); PL.srcName = srcName();
+  }
   playFrom(ui);
 }
 function playStop() {
@@ -2839,7 +2974,9 @@ function updatePos(pos) {
   const el = document.getElementById('plpos');
   if (!el) return;
   const i = (pos == null ? PL.i : pos);
-  el.textContent = (state.tab === 'bible' ? 'стих ' : 'часть ') + (i + 1) + ' из ' + PL.units.length;
+  const away = (srcKey() !== PL.srcKey);
+  const what = (PL.srcKey.indexOf('b:') === 0 ? 'стих ' : 'часть ');
+  el.innerHTML = (away ? '<u>' + esc(PL.srcName) + '</u> · ' : '') + what + (i + 1) + ' из ' + PL.units.length;
 }
 
 /* Голоса, доступные на устройстве */
@@ -2925,12 +3062,12 @@ function drawBar() {
 
 /* ---------- Экран Библии ---------- */
 function bibleOpen(b, c) {
-  playStop();
+  state.bscope = b;
   state.bb = b; state.bc = c; state.bmode = 'text'; state.bq = '';
   render(); window.scrollTo(0, 0);
 }
-function bibleChapters(b) { playStop(); state.bb = b; state.bmode = 'chapters'; render(); window.scrollTo(0, 0); }
-function bibleBooks() { playStop(); state.bmode = 'books'; state.bq = ''; render(); window.scrollTo(0, 0); }
+function bibleChapters(b) { state.bscope = b; state.bb = b; state.bmode = 'chapters'; render(); window.scrollTo(0, 0); }
+function bibleBooks() { state.bscope = null; state.bmode = 'books'; state.bq = ''; render(); window.scrollTo(0, 0); }
 function bibleGo() {
   const r = parseRef((state.bq || '').trim());
   if (r) {
@@ -2942,8 +3079,10 @@ function bibleGo() {
   }
 }
 function renderBible(m) {
-  if (!HAS_BIBLE) {
-    m.innerHTML = '<div class="empty">Полный текст Библии в этой версии ещё не подключён.<br><br>Он появится после следующей сборки.</div>';
+  if (!initBible()) {
+    m.innerHTML = '<div class="empty">Полный текст Библии загружается…<br><br>' +
+      'Если сообщение не исчезает, значит в этой версии он ещё не подключён.</div>';
+    setTimeout(function () { if (state.tab === 'bible' && initBible()) render(); }, 800);
     return;
   }
   const q = (state.bq || '').trim();
@@ -2951,13 +3090,32 @@ function renderBible(m) {
 
   if (q.length > 1) {
     const r = parseRef(q);
-    const res = bibleSearch(q);
+    const scope = (state.bscope == null ? null : state.bscope);
+    const res = bibleSearch(q, scope);
+    const st = bibleStats(q, scope);
     if (r) {
       html += '<button class="rowbtn" onclick="bibleOpen(' + r.b + ',' + r.c + ')"><b>Открыть: ' +
         esc(BB[r.b].n) + ' ' + r.c + (r.v ? ':' + r.v : '') + '</b> →</button>';
     }
+    if (st && st.hits) {
+      const inScope = (scope != null);
+      const h = inScope ? st.sHits : st.hits, v = inScope ? st.sVerses : st.verses;
+      html += '<div class="report">' +
+        '<div class="rbig">' + nfmt(h) + ' ' + wordForm(h, 'упоминание', 'упоминания', 'упоминаний') + '</div>' +
+        '<div class="rsub">в ' + nfmt(v) + ' ' + wordForm(v, 'стихе', 'стихах', 'стихах') +
+          (inScope ? ' · книга «' + esc(BB[scope].n) + '»' : ' · вся Библия') + '</div>' +
+        '<div class="chips" style="margin-top:10px">' +
+          '<button class="chip big ' + (scope == null ? 'sel' : '') + '" onclick="setScope(\'\')">Вся Библия · ' + nfmt(st.hits) + '</button>' +
+          st.byBook.slice(0, 14).map(function (x) {
+            return '<button class="chip big ' + (scope === x.b ? 'sel' : '') + '" onclick="setScope(' + x.b + ')">' +
+              esc(x.n) + ' · ' + nfmt(x.hits) + '</button>';
+          }).join('') +
+        '</div>' +
+        (st.byBook.length > 14 ? '<div class="hint">Показаны 14 книг с наибольшим числом упоминаний из ' + st.byBook.length + '.</div>' : '') +
+      '</div>';
+    }
     if (res.length) {
-      html += '<div class="sectitle">Найдено стихов: ' + res.length + (res.length >= 120 ? ' и более' : '') + '</div>';
+      html += '<div class="sectitle">Стихи' + (res.length >= 120 ? ' (первые 120)' : '') + '</div>';
       html += res.map(function (x) {
         return '<div class="card" onclick="bibleOpen(' + x.b + ',' + x.c + ')">' +
           '<div class="ref">' + esc(BB[x.b].n) + ' ' + x.c + ':' + x.v + '</div>' +
@@ -2973,6 +3131,7 @@ function renderBible(m) {
     const bk = BB[state.bb], ch = state.bc, vv = bk.c[ch - 1] || [];
     html += '<div class="crumb"><button onclick="bibleBooks()">Книги</button>›' +
       '<button onclick="bibleChapters(' + state.bb + ')">' + esc(bk.n) + '</button>›<b>Глава ' + ch + '</b></div>';
+    html += '<div class="hint">Поиск сверху ищет по книге «' + esc(bk.n) + '». Переключить на всю Библию можно в результатах.</div>';
     html += '<button class="playbtn" onclick="playStart()">🔊 Слушать главу</button>' +
       '<div class="hint">Во время чтения коснитесь любого стиха — голос продолжит с него</div>';
     html += '<div style="margin-top:14px">' + vv.map(function (tx, i) {
@@ -2988,6 +3147,7 @@ function renderBible(m) {
   if (state.bmode === 'chapters' && state.bb != null) {
     const bk = BB[state.bb];
     html += '<div class="crumb"><button onclick="bibleBooks()">Книги</button>›<b>' + esc(bk.n) + '</b></div>';
+    html += '<div class="hint">Поиск сверху ищет по книге «' + esc(bk.n) + '».</div>';
     html += '<div class="chgrid">' + bk.c.map(function (_, i) {
       return '<button class="chbtn" onclick="bibleOpen(' + state.bb + ',' + (i + 1) + ')">' + (i + 1) + '</button>';
     }).join('') + '</div>';
@@ -3023,8 +3183,20 @@ const SAMPLES = [
 ];
 let sampleIdx = 0;
 
+const SKINS = [
+  { id: 'warm',   n: 'Тёплая',      d: 'как сейчас: книжная, мягкая' },
+  { id: 'mono',   n: 'Чёрно-белая', d: 'максимум контраста, ничего лишнего' },
+  { id: 'modern', n: 'Современная', d: 'светлая, в стиле Apple' }
+];
+function applySkin(id) {
+  state.skin = id; store.set('skin', id);
+  document.documentElement.setAttribute('data-theme', id === 'warm' ? '' : id);
+  const meta = document.querySelector('meta[name=theme-color]');
+  if (meta) meta.setAttribute('content', id === 'mono' ? '#000000' : (id === 'modern' ? '#1d1d1f' : '#2c1e14'));
+}
+function pickSkin(id) { applySkin(id); openSettings(); }
+
 function openSettings() {
-  playStop();
   const list = getVoices();
   if (list.length && !state.voice) { state.voice = bestVoice(list); store.set('voice', state.voice); }
   const isAndroid = !!(window.AndroidTTS && window.AndroidTTS.speakUnit);
@@ -3032,6 +3204,13 @@ function openSettings() {
     <div class="dhead">
       <button class="iconbtn" style="margin:0" onclick="closeVerse()">←</button>
       <div class="ref">Настройки</div>
+    </div>
+
+    <div class="block"><h3>Оформление</h3>
+      ${SKINS.map(s => `<button class="skinbtn ${state.skin === s.id ? 'sel' : ''}" onclick="pickSkin('${s.id}')">
+          <span class="sw sw-${s.id}"></span>
+          <span><b>${s.n}</b><i>${s.d}</i></span>
+        </button>`).join('')}
     </div>
 
     <div class="block"><h3>Голос озвучки</h3>
@@ -3080,6 +3259,7 @@ function openSettings() {
   document.getElementById('detail').classList.add('open');
   document.getElementById('detail').scrollTop = 0;
   document.body.classList.add('locked');
+  attachUnits();
 }
 
 function changeVoice(v) {
@@ -3115,6 +3295,7 @@ function setTab(t){
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('sel', x.dataset.tab===t));
   render();
   window.scrollTo(0,0);
+  attachUnits();
 }
 
 /* ================= СПИСКИ ================= */
@@ -3139,7 +3320,7 @@ function cardHTML(v,q,showRole){
       <div class="ref">${hl(v.ref,q)}${rl}</div>
       <button class="star ${on}" onclick="event.stopPropagation();toggleFav('${v.id}',this)">★</button>
     </div>
-    <p class="teaser">${hl(v.simple,q)}</p>
+    <p class="teaser verseline">${hl(v[state.trans] || v.syn, q)}</p>
     <div class="chips">${v.themes.map(t=>`<span class="chip">${esc(t)}</span>`).join('')}</div>
   </div>`;
 }
@@ -3254,6 +3435,7 @@ function openAnswer(id){
   document.getElementById('detail').classList.add('open');
   document.getElementById('detail').scrollTop = 0;
   document.body.classList.add('locked');
+  attachUnits();
 }
 
 function toggleFav(id,el){
@@ -3304,9 +3486,10 @@ function openVerse(id){
   document.getElementById('detail').classList.add('open');
   document.getElementById('detail').scrollTop = 0;
   document.body.classList.add('locked');
+  attachUnits();
 }
-function closeVerse(){ stopSpeak(); document.getElementById('detail').classList.remove('open');
-  document.body.classList.remove('locked'); openId=null; render(); }
+function closeVerse(){ document.getElementById('detail').classList.remove('open');
+  document.body.classList.remove('locked'); openId=null; render(); attachUnits(); }
 function setTrans(t){
   state.trans = t; store.set('trans', t);
   const v = VERSES.find(x=>x.id===openId);
@@ -3332,6 +3515,7 @@ function exportNotes(){
 }
 
 /* ================= СТАРТ ================= */
+applySkin(state.skin);
 loadCps();
 try{
   if(state.role && ROLE_NAME[state.role]){
@@ -3346,6 +3530,9 @@ try{
   var eb=document.getElementById('errbar');
   if(eb){ eb.style.display='block'; eb.textContent='Ошибка запуска: '+(err&&err.message||err); }
 }
+window.addEventListener('DOMContentLoaded', function () {
+  if (initBible() && state.tab === 'bible') render();
+});
 window.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeVerse(); closeAbout(); } });
 
 /* Кнопка «Назад» на Android: закрываем открытый экран, а не выходим из приложения */
@@ -3357,7 +3544,7 @@ window.__handleBack = function(){
       document.getElementById('roleScreen').style.display='none'; return true; }
     if(state.tab==='bible' && state.bmode==='text'){ bibleChapters(state.bb); return true; }
     if(state.tab==='bible' && state.bmode==='chapters'){ bibleBooks(); return true; }
-    if(state.tab!=='texts'){ stopSpeak(); setTab('texts'); return true; }
+    if(state.tab!=='texts'){ setTab('texts'); return true; }
     if(state.theme){ state.theme=null; render(); return true; }
   }catch(e){}
   return false;
