@@ -18,6 +18,131 @@ jobs:
       - name: Забрать код
         uses: actions/checkout@v4
 
+      - name: Скачать полный текст Библии (синодальный перевод)
+        run: |
+          python3 - <<'PYEOF'
+          import json, urllib.request, os, sys
+
+          CANON = ["Бытие","Исход","Левит","Числа","Второзаконие","Иисуса Навина","Судей","Руфь",
+          "1-я Царств","2-я Царств","3-я Царств","4-я Царств","1-я Паралипоменон","2-я Паралипоменон",
+          "Ездры","Неемии","Есфирь","Иов","Псалтирь","Притчи","Екклесиаст","Песнь Песней","Исаии",
+          "Иеремии","Плач Иеремии","Иезекииля","Даниила","Осии","Иоиля","Амоса","Авдия","Ионы","Михея",
+          "Наума","Аввакума","Софонии","Аггея","Захарии","Малахии","От Матфея","От Марка","От Луки",
+          "От Иоанна","Деяния","Иакова","1-е Петра","2-е Петра","1-е Иоанна","2-е Иоанна","3-е Иоанна",
+          "Иуды","Римлянам","1-е Коринфянам","2-е Коринфянам","Галатам","Ефесянам","Филиппийцам",
+          "Колоссянам","1-е Фессалоникийцам","2-е Фессалоникийцам","1-е Тимофею","2-е Тимофею","Титу",
+          "Филимону","Евреям","Откровение"]
+
+          def get(url, timeout=90):
+              req = urllib.request.Request(url, headers={"User-Agent": "dvoe-app-build"})
+              with urllib.request.urlopen(req, timeout=timeout) as r:
+                  return json.loads(r.read().decode("utf-8", "replace"))
+
+          def clean(s):
+              return " ".join(str(s).replace(" ", " ").split())
+
+          def norm_books(raw):
+              """Приводим любой из известных форматов к [{n: имя, c: [[стих,...],...]}]"""
+              books = []
+              # Формат 1: [{abbrev, name, chapters: [[стих,...],...]}]
+              if isinstance(raw, list) and raw and isinstance(raw[0], dict) and "chapters" in raw[0]:
+                  for i, b in enumerate(raw):
+                      name = clean(b.get("name") or b.get("book") or (CANON[i] if i < len(CANON) else "Книга %d" % (i+1)))
+                      chs = []
+                      for c in b["chapters"]:
+                          if isinstance(c, list):
+                              chs.append([clean(v) for v in c])
+                          elif isinstance(c, dict):
+                              vs = c.get("verses") or []
+                              if isinstance(vs, dict):
+                                  vs = [vs[k] for k in sorted(vs, key=lambda x: int(x))]
+                              chs.append([clean(v.get("text") if isinstance(v, dict) else v) for v in vs])
+                      books.append({"n": name, "c": chs})
+                  return books
+              # Формат 2: плоский список стихов
+              if isinstance(raw, list) and raw and isinstance(raw[0], dict) and "text" in raw[0]:
+                  acc = {}
+                  for v in raw:
+                      bi = v.get("book") or v.get("book_number") or v.get("book_id")
+                      ch = int(v.get("chapter", 1)); vs = int(v.get("verse", 1))
+                      acc.setdefault(bi, {}).setdefault(ch, {})[vs] = clean(v.get("text"))
+                  for k in sorted(acc, key=lambda x: int(x)):
+                      idx = int(k) - 1
+                      name = CANON[idx] if 0 <= idx < len(CANON) else "Книга %s" % k
+                      chs = [[acc[k][c][x] for x in sorted(acc[k][c])] for c in sorted(acc[k])]
+                      books.append({"n": name, "c": chs})
+                  return books
+              return []
+
+          SOURCES = [
+            "https://raw.githubusercontent.com/thiagobodruk/bible/master/json/ru_synodal.json",
+            "https://raw.githubusercontent.com/thiagobodruk/biblia/master/json/ru_synodal.json",
+            "https://bolls.life/static/translations/SYNO.json",
+          ]
+
+          books = []
+          for url in SOURCES:
+              try:
+                  print("Пробую:", url)
+                  data = get(url)
+                  cand = norm_books(data)
+                  nv = sum(len(c) for b in cand for c in b["c"])
+                  print("  книг: %d, стихов: %d" % (len(cand), nv))
+                  if len(cand) >= 60 and nv >= 25000:
+                      books = cand
+                      break
+              except Exception as e:
+                  print("  не вышло:", e)
+
+          if not books:
+              try:
+                  print("Пробую getbible v2")
+                  idx = get("https://api.getbible.net/v2/synodal/books.json")
+                  nums = [b["nr"] for b in idx] if isinstance(idx, list) else []
+                  tmp = []
+                  for nr in nums:
+                      d = get("https://api.getbible.net/v2/synodal/%s.json" % nr, timeout=60)
+                      name = clean(d.get("name") or (CANON[nr-1] if nr <= len(CANON) else "Книга %d" % nr))
+                      acc = {}
+                      for v in d.get("verses", []):
+                          acc.setdefault(int(v["chapter"]), {})[int(v["verse"])] = clean(v["text"])
+                      tmp.append({"n": name, "c": [[acc[c][x] for x in sorted(acc[c])] for c in sorted(acc)]})
+                  nv = sum(len(c) for b in tmp for c in b["c"])
+                  print("  книг: %d, стихов: %d" % (len(tmp), nv))
+                  if len(tmp) >= 60 and nv >= 25000:
+                      books = tmp
+              except Exception as e:
+                  print("  не вышло:", e)
+
+          if books:
+              nv = sum(len(c) for b in books for c in b["c"])
+              with open("bible.js", "w", encoding="utf-8") as f:
+                  f.write("const BIBLE=")
+                  json.dump({"books": books}, f, ensure_ascii=False, separators=(",", ":"))
+                  f.write(";")
+              print("ГОТОВО: %d книг, %d глав, %d стихов, %.1f МБ"
+                    % (len(books), sum(len(b["c"]) for b in books), nv, os.path.getsize("bible.js")/1048576))
+              print("Первая книга:", books[0]["n"], "| последняя:", books[-1]["n"])
+              print("Пример — Иоанна 3:16 ищем по названию:",
+                    next((b["c"][2][15][:60] for b in books if "оанн" in b["n"] and len(b["c"]) > 2), "нет"))
+          else:
+              with open("bible.js", "w", encoding="utf-8") as f:
+                  f.write("/* текст Библии не загрузился при этой сборке */")
+              print("ВНИМАНИЕ: текст Библии не удалось скачать. Приложение соберётся без него.")
+          PYEOF
+
+      - name: Сохранить текст Библии в репозиторий
+        run: |
+          if [ -s bible.js ] && [ $(stat -c%s bible.js) -gt 1000000 ]; then
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add -f bible.js
+            git diff --staged --quiet || git commit -m "Полный текст Библии для сайта [skip ci]"
+            git push || echo "не удалось отправить в репозиторий — на сборку APK это не влияет"
+          else
+            echo "Файл Библии пустой — в репозиторий не отправляю"
+          fi
+
       - name: Создать проект Android
         run: |
           set -e
@@ -27,6 +152,7 @@ jobs:
           mkdir -p android/app/src/main/res/mipmap-anydpi-v26
 
           cp index.html android/app/src/main/assets/index.html
+          cp bible.js  android/app/src/main/assets/bible.js
 
           cat > android/settings.gradle <<'EOF'
           pluginManagement {
@@ -60,8 +186,8 @@ jobs:
                   applicationId "app.dvoe"
                   minSdk 26
                   targetSdk 34
-                  versionCode 3
-                  versionName "3.0"
+                  versionCode VERSION_CODE_PLACEHOLDER
+                  versionName "VERSION_NAME_PLACEHOLDER"
               }
 
               compileOptions {
@@ -74,6 +200,11 @@ jobs:
           cat > android/app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <queries>
+                  <intent>
+                      <action android:name="android.intent.action.TTS_SERVICE" />
+                  </intent>
+              </queries>
               <application
                   android:allowBackup="true"
                   android:icon="@mipmap/ic_launcher"
@@ -101,17 +232,23 @@ jobs:
           import android.app.Activity;
           import android.graphics.Color;
           import android.os.Bundle;
+          import android.speech.tts.TextToSpeech;
           import android.view.View;
+          import android.webkit.JavascriptInterface;
           import android.webkit.ValueCallback;
           import android.webkit.WebSettings;
           import android.webkit.WebView;
           import android.webkit.WebViewClient;
 
+          import java.util.Locale;
+
           public class MainActivity extends Activity {
 
               private WebView web;
+              private TextToSpeech tts;
+              private boolean ttsReady = false;
 
-              @SuppressLint("SetJavaScriptEnabled")
+              @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface", "AddJavascriptInterface"})
               @Override
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
@@ -132,6 +269,40 @@ jobs:
                   web.setWebViewClient(new WebViewClient());
                   web.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
+                  tts = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+                      @Override
+                      public void onInit(int status) {
+                          if (status == TextToSpeech.SUCCESS) {
+                              try { tts.setLanguage(new Locale("ru", "RU")); } catch (Exception e) { }
+                              ttsReady = true;
+                          }
+                      }
+                  });
+
+                  web.addJavascriptInterface(new Object() {
+                      @JavascriptInterface
+                      public void speak(String text) {
+                          if (!ttsReady || text == null) return;
+                          tts.stop();
+                          int max = 3500;
+                          int i = 0, part = 0;
+                          while (i < text.length()) {
+                              int end = Math.min(i + max, text.length());
+                              if (end < text.length()) {
+                                  int cut = text.lastIndexOf('.', end);
+                                  if (cut > i + 200) end = cut + 1;
+                              }
+                              tts.speak(text.substring(i, end),
+                                      part == 0 ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD,
+                                      null, "dvoe" + part);
+                              i = end; part++;
+                          }
+                      }
+
+                      @JavascriptInterface
+                      public void stop() { if (ttsReady) tts.stop(); }
+                  }, "AndroidTTS");
+
                   if (savedInstanceState == null) {
                       web.loadUrl("file:///android_asset/index.html");
                   } else {
@@ -151,6 +322,18 @@ jobs:
                               }
                           }
                       });
+              }
+
+              @Override
+              protected void onPause() {
+                  super.onPause();
+                  if (ttsReady) tts.stop();
+              }
+
+              @Override
+              protected void onDestroy() {
+                  if (tts != null) { tts.stop(); tts.shutdown(); }
+                  super.onDestroy();
               }
 
               @Override
@@ -192,8 +375,13 @@ jobs:
           </adaptive-icon>
           EOF
 
+          sed -i "s/VERSION_CODE_PLACEHOLDER/${GITHUB_RUN_NUMBER}/" android/app/build.gradle
+          sed -i "s/VERSION_NAME_PLACEHOLDER/5.${GITHUB_RUN_NUMBER}/" android/app/build.gradle
+
           echo "Структура проекта:"
           find android -type f | sort
+          echo "Размер файла Библии:"
+          du -h android/app/src/main/assets/bible.js
 
       - name: Java 17
         uses: actions/setup-java@v4
@@ -214,7 +402,7 @@ jobs:
         run: |
           mkdir -p out
           cp android/app/build/outputs/apk/debug/app-debug.apk out/dvoe.apk
-          ls -la out
+          ls -lh out
 
       - name: Приложить APK к сборке
         uses: actions/upload-artifact@v4
@@ -237,6 +425,6 @@ jobs:
                приложение из этого источника — разрешите.
             3. Иконка появится на рабочем столе.
 
-            Интернет не нужен: все тексты внутри приложения.
+            Интернет не нужен: все тексты и полная Библия внутри приложения.
           files: out/dvoe.apk
           make_latest: true
