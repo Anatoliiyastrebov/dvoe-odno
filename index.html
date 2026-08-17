@@ -2677,9 +2677,15 @@ function bibleSearch(q) {
 const PL = { units: [], words: [], unitStart: [], i: -1, wi: 0, off: 0,
              on: false, paused: false, drag: false, rate: parseFloat(store.get('rate') || '0.92'),
              t0: 0, startChar: 0, timer: null,
-             cps: 14, gotRange: false, lastGi: 0 };
+             cps: 11, gotRange: false, lastGi: 0,
+             lat: 0.5, callT: 0, started: false };
 function cpsKey() { return 'cps_' + (state.voice || 'default'); }
-function loadCps() { PL.cps = parseFloat(store.get(cpsKey()) || '14') || 14; }
+function latKey() { return 'lat_' + (state.voice || 'default'); }
+function loadCps() {
+  PL.cps = parseFloat(store.get(cpsKey()) || '11') || 11;
+  PL.lat = parseFloat(store.get(latKey()) || '0.5');
+  if (!(PL.lat >= 0 && PL.lat < 3)) PL.lat = 0.5;
+}
 function saveCps() { store.set(cpsKey(), PL.cps.toFixed(2)); }
 
 function esc2(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
@@ -2743,8 +2749,8 @@ function clearMark() {
 function speakFromWord(gi) {
   const w = PL.words[gi]; if (!w) { playStop(); return; }
   PL.i = w.u; PL.off = w.ci; PL.on = true; PL.paused = false;
-  PL.startChar = w.ci; PL.t0 = Date.now();
-  PL.gotRange = false; PL.lastGi = gi;
+  PL.startChar = w.ci; PL.t0 = Date.now(); PL.callT = Date.now();
+  PL.gotRange = false; PL.started = false; PL.lastGi = gi;
   showWord(gi);
   startTicker();
   speakUnit(PL.units[w.u].text.slice(w.ci));
@@ -2779,6 +2785,7 @@ function speakUnit(text) {
       const v = (speechSynthesis.getVoices() || []).filter(x => x.name === state.voice)[0];
       if (v) utt.voice = v;
     }
+    utt.onstart = () => window.__ttsStart();
     utt.onend = () => { if (PL.on && !PL.paused) window.__ttsDone(); };
     utt.onboundary = e => { if (e.charIndex != null) window.__ttsRange(e.charIndex, e.charIndex + (e.charLength || 0)); };
     speechSynthesis.speak(utt);
@@ -2788,7 +2795,7 @@ window.__ttsDone = function () {
   if (!PL.on || PL.paused) return;
   // голос дочитал кусок — теперь точно известно, сколько знаков в секунду он читает
   try {
-    const sec = (Date.now() - PL.t0) / 1000;
+    const sec = (Date.now() - PL.t0) / 1000 - (PL.started ? 0 : PL.lat);
     const chars = (PL.units[PL.i].text.length - PL.startChar);
     if (sec > 0.8 && chars > 25) {
       const obs = chars / sec / (PL.rate || 1);
@@ -2799,6 +2806,17 @@ window.__ttsDone = function () {
   if (nextUnit >= PL.units.length) { playStop(); return; }
   speakFromWord(PL.unitStart[nextUnit]);
 };
+/* Движок начал звучать — только теперь запускаем отсчёт */
+window.__ttsStart = function () {
+  const real = (Date.now() - PL.callT) / 1000;
+  if (real >= 0 && real < 3) {
+    PL.lat = PL.lat * 0.5 + real * 0.5;      // запоминаем задержку этого голоса
+    store.set(latKey(), PL.lat.toFixed(2));
+  }
+  PL.t0 = Date.now();
+  PL.started = true;
+};
+
 function syncBar(gi) {
   const r = document.getElementById('plrange');
   if (r) r.value = gi;
@@ -2809,7 +2827,11 @@ function startTicker() {
   clearInterval(PL.timer);
   PL.timer = setInterval(function () {
     if (!PL.on || PL.paused || PL.drag) return;
-    const sec = (Date.now() - PL.t0) / 1000;
+    // пока звук не начался — подсветка стоит на первом слове
+    let sec = (Date.now() - PL.t0) / 1000 - (PL.started ? 0 : PL.lat);
+    if (sec <= 0) return;
+    sec -= 0.15;                       // маленький запас, чтобы буква не опережала звук
+    if (sec <= 0) return;
     const total = Math.max(1, PL.units[PL.i].text.length - PL.startChar);
     let predSec = total / (PL.cps * PL.rate);
 
@@ -2836,6 +2858,7 @@ function stopTicker() { clearInterval(PL.timer); PL.timer = null; }
 window.__ttsRange = function (s) {
   if (!PL.on || PL.drag) return;
   const real = s + PL.off;
+  if (!PL.started) { PL.t0 = Date.now(); PL.started = true; }
   const sec = (Date.now() - PL.t0) / 1000;
   if (sec > 0.5 && real - PL.startChar > 8) {
     const obs = (real - PL.startChar) / sec / (PL.rate || 1);
