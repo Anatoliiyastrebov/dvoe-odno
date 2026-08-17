@@ -129,6 +129,17 @@ body.locked{overflow:hidden}
   font-size:14.5px;font-weight:600;display:inline-flex;align-items:center;gap:8px}
 .crumb{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .crumb button{font-size:13.5px;color:var(--accent);font-weight:600}
+.spknow{background:#fff3d0;border-radius:8px;box-shadow:0 0 0 4px #fff3d0}
+.wnow{background:var(--accent);color:#fff;border-radius:4px;padding:0 3px}
+#plbar{position:fixed;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom));z-index:45;
+  margin:0 auto;max-width:560px;display:flex;align-items:center;gap:4px;
+  background:#2c1e14;color:#fff;border-radius:14px;padding:8px 10px;
+  box-shadow:0 6px 24px rgba(0,0,0,.28)}
+#plbar button{color:#fff;font-size:19px;padding:8px 10px;border-radius:10px;line-height:1}
+#plbar button.big{font-size:23px}
+#plbar button.rate{font-size:13px;font-weight:700;border:1px solid rgba(255,255,255,.3)}
+#plbar .pos{flex:1;text-align:center;font-size:13px;color:#e0cdb8;font-weight:600}
+.vnum{cursor:pointer}
 .steps{list-style:none;padding:0;margin:0}
 .steps li{background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:12px 14px;margin-bottom:8px;font-size:15px;display:flex;gap:10px}
@@ -221,7 +232,7 @@ window.onerror=function(m,s,l,c){var e=document.getElementById('errbar');
     <button class="rowbtn" onclick="exportNotes()">📤 Выгрузить мои заметки и избранное</button>
     <button class="rowbtn" onclick="openRoleScreen();closeAbout()">🔄 Сменить роль</button>
     <button class="rowbtn" onclick="closeAbout()">Закрыть</button>
-    <p style="margin-top:14px;font-size:12.5px;color:#9b8a7b">Версия 6 · Работает в Chrome, Safari, Firefox. Если что-то не открывается — сделайте скриншот этого экрана.</p>
+    <p style="margin-top:14px;font-size:12.5px;color:#9b8a7b">Версия 7 · Работает в Chrome, Safari, Firefox. Если что-то не открывается — сделайте скриншот этого экрана.</p>
     <p style="margin-top:8px;font-size:12.5px">Переводы: Синодальный перевод (общественное достояние), «Современный» — редакция синодального текста на нынешнем русском языке, «Простыми словами» — свободный пересказ смысла, не перевод. Подключение лицензионных переводов (НРП, РБО и др.) возможно на следующем этапе.</p>
   </div>
 </div>
@@ -2095,42 +2106,111 @@ function bibleSearch(q) {
   }
   return out;
 }
-/* ---------- Озвучка ---------- */
-let speaking = false;
-function speak(text, btn) {
+/* ---------- Проигрыватель с перемоткой и подсветкой ---------- */
+const PL = { units: [], i: -1, on: false, paused: false };
+
+function esc2(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+/* Собираем куски для чтения: всё, что помечено классом spk, по порядку */
+function collectUnits() {
+  const els = Array.prototype.slice.call(document.querySelectorAll('.spk'));
+  return els.filter(e => (e.textContent || '').trim().length > 1)
+            .map(e => ({ el: e, text: (e.textContent || '').trim() }));
+}
+
+function playFrom(i) {
+  if (!PL.units.length) return;
+  if (i < 0) i = 0;
+  if (i >= PL.units.length) { playStop(); return; }
+  clearMark();
+  PL.i = i; PL.on = true; PL.paused = false;
+  const u = PL.units[i];
+  u.el.dataset.plain = u.text;
+  u.el.classList.add('spknow');
+  try { u.el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { u.el.scrollIntoView(); }
+  speakUnit(u.text);
+  drawBar();
+}
+function speakUnit(text) {
   try {
-    if (window.AndroidTTS && window.AndroidTTS.speak) {
-      if (speaking) { window.AndroidTTS.stop(); speaking = false; setSpeakBtn(btn, false); return; }
-      window.AndroidTTS.speak(text); speaking = true; setSpeakBtn(btn, true); return;
-    }
-    if (!('speechSynthesis' in window)) { alert('Это устройство не умеет озвучивать текст.'); return; }
-    if (speechSynthesis.speaking || speaking) {
-      speechSynthesis.cancel(); speaking = false; setSpeakBtn(btn, false); return;
-    }
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'ru-RU'; u.rate = 0.95;
-    u.onend = () => { speaking = false; setSpeakBtn(btn, false); };
-    speechSynthesis.speak(u); speaking = true; setSpeakBtn(btn, true);
-  } catch (e) { speaking = false; }
+    if (window.AndroidTTS && window.AndroidTTS.speakUnit) { window.AndroidTTS.speakUnit(text); return; }
+    if (!('speechSynthesis' in window)) { alert('Это устройство не умеет читать вслух.'); playStop(); return; }
+    speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'ru-RU'; utt.rate = PL.rate || 0.98;
+    utt.onend = () => { if (PL.on && !PL.paused) window.__ttsDone(); };
+    utt.onboundary = e => { if (e.name === 'word' || e.charIndex != null)
+        window.__ttsRange(e.charIndex, e.charIndex + (e.charLength || 0)); };
+    speechSynthesis.speak(utt);
+  } catch (e) { playStop(); }
 }
-function speakChapter(btn) {
-  const bk = BB[state.bb], ch = state.bc;
-  const vv = bk.c[ch - 1] || [];
-  speak(bk.n + ', глава ' + ch + '. ' + vv.join(' '), btn);
+window.__ttsDone = function () { if (PL.on && !PL.paused) playFrom(PL.i + 1); };
+window.__ttsRange = function (s, e) {
+  const u = PL.units[PL.i]; if (!u) return;
+  const txt = u.el.dataset.plain || u.text;
+  if (!(s >= 0 && e > s && e <= txt.length)) return;
+  u.el.innerHTML = esc2(txt.slice(0, s)) + '<span class="wnow">' + esc2(txt.slice(s, e)) + '</span>' + esc2(txt.slice(e));
+};
+function clearMark() {
+  document.querySelectorAll('.spknow').forEach(el => {
+    if (el.dataset.plain) el.textContent = el.dataset.plain;
+    el.classList.remove('spknow');
+  });
 }
-function speakEl(id, btn) {
-  const el = document.getElementById(id);
-  if (el) speak(el.textContent || '', btn);
+function playStart(btn) {
+  PL.units = collectUnits();
+  if (!PL.units.length) return;
+  playFrom(0);
 }
-function setSpeakBtn(btn, on) {
-  if (btn) btn.innerHTML = on ? '⏹ Остановить' : (btn.dataset.lbl || '🔊 Слушать');
-}
-function stopSpeak() {
+function playStop() {
+  PL.on = false; PL.paused = false; PL.i = -1;
   try {
     if (window.AndroidTTS && window.AndroidTTS.stop) window.AndroidTTS.stop();
     else if ('speechSynthesis' in window) speechSynthesis.cancel();
   } catch (e) {}
-  speaking = false;
+  clearMark(); drawBar();
+}
+function playPause() {
+  if (!PL.on) return;
+  PL.paused = !PL.paused;
+  try {
+    if (window.AndroidTTS) { if (PL.paused) window.AndroidTTS.stop(); else { PL.paused = false; playFrom(PL.i); return; } }
+    else if (PL.paused) speechSynthesis.pause(); else speechSynthesis.resume();
+  } catch (e) {}
+  drawBar();
+}
+function playNext() { if (PL.on) playFrom(PL.i + 1); }
+function playPrev() { if (PL.on) playFrom(Math.max(0, PL.i - 1)); }
+function playRate() {
+  const steps = [0.75, 0.98, 1.25, 1.5];
+  const cur = steps.indexOf(PL.rate || 0.98);
+  PL.rate = steps[(cur + 1) % steps.length];
+  if (PL.on) playFrom(PL.i);
+  drawBar();
+}
+function stopSpeak() { playStop(); }
+
+/* Полоса проигрывателя внизу экрана */
+function playUnitAt(i) {
+  PL.units = collectUnits();
+  playFrom(i);
+}
+function drawBar() {
+  let bar = document.getElementById('plbar');
+  if (!PL.on) { if (bar) bar.remove(); return; }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'plbar';
+    document.body.appendChild(bar);
+  }
+  const pos = (PL.i + 1) + ' / ' + PL.units.length;
+  bar.innerHTML =
+    '<button onclick="playPrev()" title="Назад">⏮</button>' +
+    '<button onclick="playPause()" class="big">' + (PL.paused ? '▶' : '⏸') + '</button>' +
+    '<button onclick="playNext()" title="Вперёд">⏭</button>' +
+    '<span class="pos">' + pos + '</span>' +
+    '<button onclick="playRate()" class="rate">' + (PL.rate || 0.98).toFixed(2).replace('0.98', '1') + '×</button>' +
+    '<button onclick="playStop()" title="Стоп">✕</button>';
 }
 /* ---------- Экран Библии ---------- */
 function bibleOpen(b, c) {
@@ -2180,9 +2260,9 @@ function renderBible(m) {
     const bk = BB[state.bb], ch = state.bc, vv = bk.c[ch - 1] || [];
     html += '<div class="crumb"><button onclick="bibleBooks()">Книги</button>›' +
       '<button onclick="bibleChapters(' + state.bb + ')">' + esc(bk.n) + '</button>›<b>Глава ' + ch + '</b></div>';
-    html += '<button class="playbtn" onclick="speakChapter(this)">🔊 Слушать главу</button>';
+    html += '<button class="playbtn" onclick="playStart(this)">🔊 Слушать главу</button>';
     html += '<div style="margin-top:14px">' + vv.map((tx, i) =>
-      '<div class="vrow" id="v' + (i + 1) + '"><span class="vnum">' + (i + 1) + '</span><span>' + esc(tx) + '</span></div>').join('') + '</div>';
+      '<div class="vrow" id="v' + (i + 1) + '"><span class="vnum" onclick="playUnitAt(' + i + ')">' + (i + 1) + '</span><span class="spk">' + esc(tx) + '</span></div>').join('') + '</div>';
     html += '<div class="chnav">' +
       '<button ' + (ch <= 1 ? 'disabled' : 'onclick="bibleOpen(' + state.bb + ',' + (ch - 1) + ')"') + '>← Глава ' + (ch - 1) + '</button>' +
       '<button ' + (ch >= bk.c.length ? 'disabled' : 'onclick="bibleOpen(' + state.bb + ',' + (ch + 1) + ')"') + '>Глава ' + (ch + 1) + ' →</button></div>';
@@ -2350,13 +2430,12 @@ function openAnswer(id){
       <button class="star ${on}" onclick="toggleFav('${id}',this)">★</button>
     </div>
     <h2 class="qtitle">${esc(a.q)}</h2>
-    <div class="shortans">${esc(a.a)}</div>
-    <button class="playbtn" style="margin-top:12px" data-lbl="🔊 Слушать" onclick="speakEl('listenBlock',this)">🔊 Слушать</button>
-    <div id="listenBlock" style="position:absolute;left:-9999px">${esc(a.q + '. ' + a.a + ' ' + a.body.join(' '))}</div>
+    <div class="shortans spk">${esc(a.a)}</div>
+    <button class="playbtn" style="margin-top:12px" onclick="playStart(this)">🔊 Слушать</button>
     <div class="block"><h3>Разбор</h3>
-      ${a.body.map(p=>`<p class="deepp">${esc(p)}</p>`).join('')}</div>
+      ${a.body.map(p=>`<p class="deepp spk">${esc(p)}</p>`).join('')}</div>
     <div class="block"><h3>Что говорит Писание</h3>
-      ${a.refs.map(r=>`<div class="refbox"><b>${esc(r.r)}</b><span>${esc(r.t)}</span></div>`).join('')}</div>
+      ${a.refs.map(r=>`<div class="refbox"><b>${esc(r.r)}</b><span class="spk">${esc(r.t)}</span></div>`).join('')}</div>
     ${links.length? `<div class="block"><h3>Разобрать подробнее</h3>
       ${links.map(v=>`<button class="rowbtn" onclick="openVerse('${v.id}')">${esc(v.ref)} →</button>`).join('')}</div>`:''}
     <div class="block"><h3>Моя заметка</h3>
@@ -2396,14 +2475,13 @@ function openVerse(id){
     <div class="transwitch">
       ${['syn','mod','simple'].map(t=>`<button class="${state.trans===t?'sel':''}" onclick="setTrans('${t}')">${TRANS_NAME[t]}</button>`).join('')}
     </div>
-    <div class="verse" id="verseText">${esc(v[state.trans])}</div>
-    <button class="playbtn" style="margin-top:12px" data-lbl="🔊 Слушать" onclick="speakEl('listenBlock',this)">🔊 Слушать</button>
-    <div id="listenBlock" style="position:absolute;left:-9999px">${esc(v.ref + '. ' + v[state.trans] + ' Что это значит. ' + v.meaning)}</div>
-    <div class="block"><h3>Что это значит</h3><p>${esc(v.meaning)}</p></div>
+    <div class="verse spk" id="verseText">${esc(v[state.trans])}</div>
+    <button class="playbtn" style="margin-top:12px" onclick="playStart(this)">🔊 Слушать</button>
+    <div class="block"><h3>Что это значит</h3><p class="spk">${esc(v.meaning)}</p></div>
     ${v.deep? `<div class="block"><h3>Подробный разбор</h3>
-      ${v.deep.map(p=>`<p class="deepp">${esc(p)}</p>`).join('')}</div>`:''}
+      ${v.deep.map(p=>`<p class="deepp spk">${esc(p)}</p>`).join('')}</div>`:''}
     <div class="block"><h3>Как поступать</h3><ul class="steps">
-      ${v.steps.map((s,i)=>`<li><b>${i+1}.</b><span>${esc(s)}</span></li>`).join('')}
+      ${v.steps.map((s,i)=>`<li><b>${i+1}.</b><span class="spk">${esc(s)}</span></li>`).join('')}
     </ul></div>
     ${v.qa? `<div class="block"><h3>Живые вопросы</h3>
       ${v.qa.map((x,i)=>`<div class="qa" onclick="this.classList.toggle('open')">
