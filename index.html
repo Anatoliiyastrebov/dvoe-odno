@@ -164,14 +164,40 @@ body.locked{overflow:hidden}
 .crumb button{font-size:13.5px;color:var(--accent);font-weight:600}
 .spknow{background:var(--hl);border-radius:8px;box-shadow:0 0 0 4px var(--hl)}
 #plbar{position:fixed;left:8px;right:8px;bottom:calc(58px + env(safe-area-inset-bottom));z-index:45;
-  margin:0 auto;max-width:544px;background:var(--bar);color:#fff;border-radius:16px;padding:10px 12px 6px;
-  box-shadow:0 6px 24px rgba(0,0,0,.32)}
-#plbar .plrow{display:flex;align-items:center;gap:2px;margin-top:2px}
-#plbar button{color:#fff;font-size:18px;padding:7px 9px;border-radius:10px;line-height:1}
-#plbar button.big{font-size:22px}
-#plbar button.rate{font-size:13px;font-weight:700;border:1px solid rgba(255,255,255,.3);padding:5px 8px}
-#plbar .pos{flex:1;text-align:center;font-size:12px;color:var(--bar-ink);font-weight:600}
-#plbar .pos u{text-decoration:none;color:#fff}
+  margin:0 auto;max-width:544px;background:var(--bar);color:#fff;border-radius:20px;padding:10px 12px 12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.35)}
+#plbar button{color:#fff;line-height:1}
+.pltop{display:flex;align-items:center;gap:8px}
+.plwhere{flex:1;display:flex;align-items:center;gap:8px;text-align:left;padding:4px 6px;border-radius:12px;min-width:0}
+.plwhere:active{background:rgba(255,255,255,.12)}
+.plwhere .ptitle{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.plwhere .psub{font-size:11.5px;color:var(--bar-ink);white-space:nowrap;font-weight:600}
+#plbar .rate{font-size:12.5px;font-weight:700;border:1px solid rgba(255,255,255,.28);
+  padding:6px 9px;border-radius:9px;flex:none}
+#plbar .xbtn{font-size:16px;padding:6px 8px;border-radius:9px;flex:none;color:var(--bar-ink)}
+#plbar .plrow{display:flex;align-items:center;justify-content:center;gap:26px;margin-top:6px}
+#plbar .side{font-size:15px;letter-spacing:-2px;padding:12px 14px;border-radius:14px;
+  background:rgba(255,255,255,.1);min-width:60px}
+#plbar .side:active{background:rgba(255,255,255,.22)}
+#plbar .main{width:56px;height:56px;border-radius:50%;background:#fff;color:var(--bar);
+  font-size:17px;font-weight:700;display:grid;place-items:center;flex:none;
+  box-shadow:0 4px 14px rgba(0,0,0,.3)}
+#plbar .main:active{transform:scale(.94)}
+.eq{display:inline-flex;align-items:flex-end;gap:2px;height:13px;flex:none}
+.eq i{width:3px;background:currentColor;border-radius:2px;animation:eqa .9s ease-in-out infinite}
+.eq i:nth-child(1){height:6px;animation-delay:0s}
+.eq i:nth-child(2){height:12px;animation-delay:.25s}
+.eq i:nth-child(3){height:8px;animation-delay:.5s}
+.eq.sm{height:9px;margin-left:6px} .eq.sm i{width:2px}
+@keyframes eqa{0%,100%{transform:scaleY(.45)}50%{transform:scaleY(1)}}
+.nowbar{display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  background:var(--accent-soft);color:var(--accent);border-radius:12px;
+  padding:11px 14px;margin-bottom:12px;font-size:14px;font-weight:600}
+.nowbar b{color:var(--ink)}
+.chbtn.nowplay{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);
+  display:flex;align-items:center;justify-content:center;gap:3px}
+.bkbtn.nowplay{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);
+  display:flex;align-items:center;justify-content:space-between;gap:6px}
 #plrange{-webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;margin:0;display:block}
 #plrange::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:rgba(255,255,255,.25)}
 #plrange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;
@@ -195,6 +221,25 @@ body.locked{overflow:hidden}
 .sw-warm{background:linear-gradient(135deg,#faf6f0 50%,#8b5e34 50%)}
 .sw-mono{background:linear-gradient(135deg,#ffffff 50%,#111111 50%)}
 .sw-modern{background:linear-gradient(135deg,#f5f5f7 50%,#0071e3 50%)}
+.vrow.mk{border-radius:8px;padding-left:6px;padding-right:6px}
+.vrow.mk1{background:#ffe9a8} .vrow.mk2{background:#cdeccd} .vrow.mk3{background:#cfe3ff}
+.vrow.mk4{background:#ffd6e7} .vrow.mk5{background:#ffd7b0}
+.vrow.mk .vnum{color:#6b4a2f}
+.vnum{cursor:pointer;padding:2px 4px;border-radius:6px}
+.mkdot{color:var(--accent);font-size:15px;line-height:0;margin-left:1px}
+.swrow{display:flex;gap:10px;align-items:center;margin:14px 0 16px;flex-wrap:wrap}
+.cdot{width:40px;height:40px;border-radius:50%;border:2px solid rgba(0,0,0,.12)}
+.cdot.sel{box-shadow:0 0 0 3px var(--accent);border-color:transparent}
+.cdot.none{background:var(--card);color:var(--muted);font-size:15px}
+.cdot.mini{width:13px;height:13px;display:inline-block;vertical-align:-1px;border-width:1px}
+.mkq{font-family:var(--serif);font-size:16px;line-height:1.55;color:var(--ink);
+  background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 4px}
+.mknote{background:var(--accent-soft);border-radius:10px;padding:9px 12px;font-size:14px;margin:8px 0 0}
+.mkcard{padding-left:12px}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:120px;z-index:70;
+  background:var(--bar);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;
+  opacity:0;pointer-events:none;transition:.2s}
+#toast.on{opacity:1}
 .steps{list-style:none;padding:0;margin:0}
 .steps li{background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:12px 14px;margin-bottom:8px;font-size:15px;display:flex;gap:10px}
@@ -280,6 +325,7 @@ window.onerror=function(m,s,l,c){var e=document.getElementById('errbar');
 <div class="detail" id="detail"><div class="dwrap" id="dwrap"></div></div>
 
 <!-- О ПРИЛОЖЕНИИ -->
+<div class="modal" id="mkmodal" onclick="if(event.target===this)closeMark()"><div id="mksheet"></div></div>
 <div class="modal" id="about" onclick="if(event.target===this)closeAbout()">
   <div class="sheet">
     <h2>О приложении</h2>
@@ -2620,10 +2666,15 @@ let state = {
   bmode: 'books', bb: null, bc: 1, bq: '', bscope: null,
   voice: store.get('voice') || '', pitch: parseFloat(store.get('pitch') || '1'),
   skin: store.get('skin') || 'warm',
+  marks: JSON.parse(store.get('marks') || '{}'),
+  cols: JSON.parse(store.get('cols') || '[]'),
+  favView: null, mkFilter: 0,
   favs: JSON.parse(store.get('favs') || '[]'),
   notes: JSON.parse(store.get('notes') || '{}')
 };
 const saveFavs = ()=>store.set('favs', JSON.stringify(state.favs));
+const saveMarks = ()=>store.set('marks', JSON.stringify(state.marks));
+const saveCols = ()=>store.set('cols', JSON.stringify(state.cols));
 const saveNotes = ()=>store.set('notes', JSON.stringify(state.notes));
 
 const ROLE_NAME = {wife:'Для жены', husband:'Для мужа', both:'Для обоих'};
@@ -2762,7 +2813,7 @@ function bibleSearch(q, scope) {
   return out;
 }
 /* ---------- Проигрыватель: полоса перемотки по словам ---------- */
-const PL = { units: [], i: -1, srcKey: '', srcName: '',
+const PL = { units: [], i: -1, srcKey: '', srcName: '', srcId: '', srcB: -1, srcC: 0,
              on: false, paused: false, drag: false, rate: parseFloat(store.get('rate') || '0.92'),
              t0: 0, timer: null,
              cps: 11, gotRange: false, lastGi: 0,
@@ -2789,6 +2840,41 @@ function srcKey() {
   if (document.getElementById('detail').classList.contains('open')) return 'd:' + (openId || '?');
   if (state.tab === 'bible' && state.bmode === 'text') return 'b:' + state.bb + ':' + state.bc;
   return 't:' + state.tab;
+}
+function rememberSrc() {
+  PL.srcKey = srcKey(); PL.srcName = srcName(); PL.srcId = openId || '';
+  if (state.tab === 'bible' && state.bmode === 'text') { PL.srcB = state.bb; PL.srcC = state.bc; }
+  else { PL.srcB = -1; PL.srcC = 0; }
+}
+function goToPlaying() {
+  if (!PL.on) return;
+  if (PL.srcB >= 0) {
+    state.bb = PL.srcB; state.bc = PL.srcC; state.bmode = 'text';
+    if (document.getElementById('detail').classList.contains('open')) closeVerse();
+    setTab('bible');
+    setTimeout(function () {
+      const u = PL.units[PL.i];
+      if (u && u.el) u.el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 120);
+    return;
+  }
+  if (PL.srcId) {
+    if (VERSES.filter(x => x.id === PL.srcId)[0]) { openVerse(PL.srcId); return; }
+    if (ANSWERS.filter(x => x.id === PL.srcId)[0]) { openAnswer(PL.srcId); return; }
+  }
+  if (document.getElementById('detail').classList.contains('open')) closeVerse();
+  setTab(PL.srcKey.indexOf('t:') === 0 ? PL.srcKey.slice(2) : 'texts');
+}
+function playingLabel() {
+  if (!PL.on) return '';
+  if (PL.srcB >= 0 && BB[PL.srcB]) return BB[PL.srcB].n + ' ' + PL.srcC;
+  if (PL.srcId) {
+    const v = VERSES.filter(x => x.id === PL.srcId)[0];
+    if (v) return v.ref;
+    const a = ANSWERS.filter(x => x.id === PL.srcId)[0];
+    if (a) return a.q.length > 34 ? a.q.slice(0, 32) + '…' : a.q;
+  }
+  return 'Чтение';
 }
 function srcName() {
   if (state.tab === 'bible' && state.bmode === 'text' && BB[state.bb]) return BB[state.bb].n + ' ' + state.bc;
@@ -2921,13 +3007,13 @@ window.__ttsDone = function () {
 function playStart() {
   PL.units = collectUnits();
   if (!PL.units.length) return;
-  PL.srcKey = srcKey(); PL.srcName = srcName();
+  rememberSrc();
   playFrom(0);
 }
 function playUnitAt(ui) {
   if (!PL.on || srcKey() !== PL.srcKey) {
     PL.units = collectUnits();
-    PL.srcKey = srcKey(); PL.srcName = srcName();
+    rememberSrc();
   }
   playFrom(ui);
 }
@@ -2974,9 +3060,7 @@ function updatePos(pos) {
   const el = document.getElementById('plpos');
   if (!el) return;
   const i = (pos == null ? PL.i : pos);
-  const away = (srcKey() !== PL.srcKey);
-  const what = (PL.srcKey.indexOf('b:') === 0 ? 'стих ' : 'часть ');
-  el.innerHTML = (away ? '<u>' + esc(PL.srcName) + '</u> · ' : '') + what + (i + 1) + ' из ' + PL.units.length;
+  el.textContent = (PL.srcB >= 0 ? 'стих ' : 'часть ') + (i + 1) + ' из ' + PL.units.length;
 }
 
 /* Голоса, доступные на устройстве */
@@ -3046,18 +3130,137 @@ function drawBar() {
   let bar = document.getElementById('plbar');
   if (!PL.on) { if (bar) bar.remove(); return; }
   if (!bar) { bar = document.createElement('div'); bar.id = 'plbar'; document.body.appendChild(bar); }
+  const here = (srcKey() === PL.srcKey);
+  const what = (PL.srcB >= 0 ? 'стих ' : 'часть ') + (PL.i + 1) + ' из ' + PL.units.length;
   bar.innerHTML =
+    '<div class="pltop">' +
+      '<button class="plwhere' + (here ? ' here' : '') + '" onclick="goToPlaying()">' +
+        '<span class="eq"><i></i><i></i><i></i></span>' +
+        '<span class="ptitle">' + esc(playingLabel()) + '</span>' +
+        '<span class="psub" id="plpos">' + what + '</span>' +
+      '</button>' +
+      '<button class="rate" onclick="playRate()">' + PL.rate.toFixed(2).replace(/0$/, '') + '×</button>' +
+      '<button class="xbtn" onclick="playStop()">✕</button>' +
+    '</div>' +
     '<input type="range" id="plrange" min="0" max="' + Math.max(0, PL.units.length - 1) + '" value="' + PL.i + '" ' +
       'oninput="seekPreview(this.value)" onchange="seekCommit(this.value)">' +
     '<div class="plrow">' +
-      '<button onclick="playPause()" class="big">' + (PL.paused ? '▶' : '⏸') + '</button>' +
-      '<button onclick="playPrev()">⏮</button>' +
-      '<button onclick="playNext()">⏭</button>' +
-      '<span class="pos" id="plpos"></span>' +
-      '<button onclick="playRate()" class="rate">' + PL.rate.toFixed(2).replace(/0$/, '') + '×</button>' +
-      '<button onclick="playStop()">✕</button>' +
+      '<button class="side" onclick="playPrev()">◀◀</button>' +
+      '<button class="main" onclick="playPause()">' + (PL.paused ? '▶' : '❚❚') + '</button>' +
+      '<button class="side" onclick="playNext()">▶▶</button>' +
     '</div>';
-  updatePos();
+}
+
+/* ================= ПОМЕТКИ И ПОДБОРКИ ================= */
+const MK_COLORS = [
+  { id: 1, n: 'Жёлтый', c: '#ffe9a8' }, { id: 2, n: 'Зелёный', c: '#cdeccd' },
+  { id: 3, n: 'Синий', c: '#cfe3ff' },  { id: 4, n: 'Розовый', c: '#ffd6e7' },
+  { id: 5, n: 'Оранжевый', c: '#ffd7b0' }
+];
+function mkKey(b, c, v) { return b + ':' + c + ':' + v; }
+function mkGet(k) { return state.marks[k] || null; }
+function mkText(k) {
+  const p = k.split(':');
+  if (!initBible() || !BB[+p[0]]) return '';
+  return (BB[+p[0]].c[+p[1] - 1] || [])[+p[2] - 1] || '';
+}
+function mkRef(k) {
+  const p = k.split(':');
+  return (BB[+p[0]] ? BB[+p[0]].n : '?') + ' ' + p[1] + ':' + p[2];
+}
+function mkEnsure(k) { if (!state.marks[k]) state.marks[k] = { c: 0, note: '', col: [] }; return state.marks[k]; }
+function mkClean(k) {
+  const m = state.marks[k];
+  if (m && !m.c && !(m.note || '').trim() && !(m.col || []).length) delete state.marks[k];
+}
+function mkColor(k, id) { const m = mkEnsure(k); m.c = (m.c === id ? 0 : id); mkClean(k); saveMarks(); openMark(k); render(); }
+function mkToggleCol(k, name) {
+  const m = mkEnsure(k); m.col = m.col || [];
+  const i = m.col.indexOf(name);
+  if (i < 0) m.col.push(name); else m.col.splice(i, 1);
+  mkClean(k); saveMarks(); openMark(k);
+}
+function mkNewCol(k) {
+  const name = prompt('Название подборки, например «О браке» или «Учить наизусть»');
+  if (!name || !name.trim()) return;
+  const n = name.trim().slice(0, 40);
+  if (state.cols.indexOf(n) < 0) { state.cols.push(n); saveCols(); }
+  mkToggleCol(k, n);
+}
+function mkNote(k) {
+  const m = mkEnsure(k);
+  const v = prompt('Заметка к стиху ' + mkRef(k), m.note || '');
+  if (v === null) return;
+  m.note = v.trim(); mkClean(k); saveMarks(); openMark(k);
+}
+function mkCopy(k) {
+  const s = mkRef(k) + '\n' + mkText(k);
+  try {
+    if (navigator.clipboard) navigator.clipboard.writeText(s);
+    else { const ta = document.createElement('textarea'); ta.value = s; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+    toast('Скопировано');
+  } catch (e) { toast('Не удалось скопировать'); }
+}
+function toast(msg) {
+  let el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+  el.textContent = msg; el.classList.add('on');
+  clearTimeout(window.__tt); window.__tt = setTimeout(function () { el.classList.remove('on'); }, 1600);
+}
+function mkClear(k) { delete state.marks[k]; saveMarks(); closeMark(); render(); }
+function openMark(k) {
+  const m = mkGet(k) || { c: 0, note: '', col: [] };
+  document.getElementById('mksheet').innerHTML = `
+    <div class="sheet">
+      <h2>${esc(mkRef(k))}</h2>
+      <p class="mkq">${esc(mkText(k))}</p>
+      <div class="swrow">
+        ${MK_COLORS.map(c => `<button class="cdot ${m.c === c.id ? 'sel' : ''}" title="${c.n}"
+            style="background:${c.c}" onclick="mkColor('${k}',${c.id})"></button>`).join('')}
+        ${m.c ? `<button class="cdot none" title="Убрать цвет" onclick="mkColor('${k}',${m.c})">✕</button>` : ''}
+      </div>
+      <button class="rowbtn" onclick="mkNote('${k}')">📝 ${m.note ? 'Изменить заметку' : 'Добавить заметку'}</button>
+      ${m.note ? `<p class="mknote">${esc(m.note)}</p>` : ''}
+      <div class="sectitle" style="margin:14px 0 8px">Подборки</div>
+      <div class="chips">
+        ${state.cols.map(n => `<button class="chip big ${(m.col || []).indexOf(n) >= 0 ? 'sel' : ''}"
+            onclick="mkToggleCol('${k}','${esc(n)}')">${esc(n)}</button>`).join('')}
+        <button class="chip big" onclick="mkNewCol('${k}')">+ новая</button>
+      </div>
+      <div style="height:14px"></div>
+      <button class="rowbtn" onclick="closeMark();playVerseFrom('${k}')">🔊 Слушать с этого стиха</button>
+      <button class="rowbtn" onclick="mkCopy('${k}')">📋 Копировать стих</button>
+      ${(m.c || (m.note || '').trim() || (m.col || []).length) ? `<button class="rowbtn" onclick="mkClear('${k}')">🗑 Убрать пометку</button>` : ''}
+      <button class="rowbtn" onclick="closeMark()">Закрыть</button>
+    </div>`;
+  document.getElementById('mkmodal').classList.add('open');
+}
+function closeMark() { document.getElementById('mkmodal').classList.remove('open'); }
+function playVerseFrom(k) {
+  const p = k.split(':');
+  if (state.bb !== +p[0] || state.bc !== +p[1] || state.bmode !== 'text' || state.tab !== 'bible') {
+    state.bb = +p[0]; state.bc = +p[1]; state.bmode = 'text'; setTab('bible');
+  }
+  setTimeout(function () { playUnitAt(+p[2] - 1); }, 80);
+}
+function markCardHTML(k) {
+  const m = state.marks[k] || {};
+  const col = MK_COLORS.filter(c => c.id === m.c)[0];
+  return '<div class="card mkcard" style="' + (col ? 'border-left:5px solid ' + col.c : '') + '" onclick="openMark(\'' + k + '\')">' +
+    '<div class="ref">' + esc(mkRef(k)) + '</div>' +
+    '<p class="teaser verseline">' + esc(mkText(k)) + '</p>' +
+    ((m.note || '').trim() ? '<p class="mknote">' + esc(m.note) + '</p>' : '') +
+    ((m.col || []).length ? '<div class="chips">' + m.col.map(n => '<span class="chip">' + esc(n) + '</span>').join('') + '</div>' : '') +
+    '</div>';
+}
+function delCol(n) {
+  if (!confirm('Удалить подборку «' + n + '»? Сами пометки останутся.')) return;
+  state.cols = state.cols.filter(x => x !== n);
+  Object.keys(state.marks).forEach(function (k) {
+    const m = state.marks[k];
+    if (m.col) { m.col = m.col.filter(x => x !== n); mkClean(k); }
+  });
+  saveCols(); saveMarks(); state.favView = null; render();
 }
 
 /* ---------- Экран Библии ---------- */
@@ -3087,6 +3290,10 @@ function renderBible(m) {
   }
   const q = (state.bq || '').trim();
   let html = '<div class="searchbar"><span>📕</span><input id="bq" placeholder="Ин 3:16, Быт 1, или слово для поиска" value="' + esc(q) + '"></div>';
+  if (PL.on && PL.srcB >= 0 && !(state.bmode === 'text' && state.bb === PL.srcB && state.bc === PL.srcC)) {
+    html += '<button class="nowbar" onclick="goToPlaying()">' +
+      '<span class="eq"><i></i><i></i><i></i></span> Сейчас читается: <b>' + esc(BB[PL.srcB].n + ' ' + PL.srcC) + '</b> →</button>';
+  }
 
   if (q.length > 1) {
     const r = parseRef(q);
@@ -3135,9 +3342,15 @@ function renderBible(m) {
     html += '<button class="playbtn" onclick="playStart()">🔊 Слушать главу</button>' +
       '<div class="hint">Во время чтения коснитесь любого стиха — голос продолжит с него</div>';
     html += '<div style="margin-top:14px">' + vv.map(function (tx, i) {
-      return '<div class="vrow" id="v' + (i + 1) + '"><span class="vnum" onclick="playUnitAt(' + i + ')">' +
-        (i + 1) + '</span><span class="spk">' + esc(tx) + '</span></div>';
+      const k = mkKey(state.bb, ch, i + 1);
+      const mm = mkGet(k);
+      const cls = 'vrow' + (mm && mm.c ? ' mk mk' + mm.c : '');
+      const badge = mm && ((mm.note || '').trim() || (mm.col || []).length) ? '<span class="mkdot">•</span>' : '';
+      return '<div class="' + cls + '" id="v' + (i + 1) + '">' +
+        '<span class="vnum" onclick="openMark(\'' + k + '\')">' + (i + 1) + badge + '</span>' +
+        '<span class="spk">' + esc(tx) + '</span></div>';
     }).join('') + '</div>';
+    html += '<div class="hint">Нажмите на номер стиха — можно выделить цветом, добавить заметку или в подборку.</div>';
     html += '<div class="chnav">' +
       '<button ' + (ch <= 1 ? 'disabled' : 'onclick="bibleOpen(' + state.bb + ',' + (ch - 1) + ')"') + '>← Глава ' + (ch - 1) + '</button>' +
       '<button ' + (ch >= bk.c.length ? 'disabled' : 'onclick="bibleOpen(' + state.bb + ',' + (ch + 1) + ')"') + '>Глава ' + (ch + 1) + ' →</button></div>';
@@ -3149,14 +3362,18 @@ function renderBible(m) {
     html += '<div class="crumb"><button onclick="bibleBooks()">Книги</button>›<b>' + esc(bk.n) + '</b></div>';
     html += '<div class="hint">Поиск сверху ищет по книге «' + esc(bk.n) + '».</div>';
     html += '<div class="chgrid">' + bk.c.map(function (_, i) {
-      return '<button class="chbtn" onclick="bibleOpen(' + state.bb + ',' + (i + 1) + ')">' + (i + 1) + '</button>';
+      const on = (PL.on && PL.srcB === state.bb && PL.srcC === i + 1);
+      return '<button class="chbtn' + (on ? ' nowplay' : '') + '" onclick="bibleOpen(' + state.bb + ',' + (i + 1) + ')">' +
+        (i + 1) + (on ? '<span class="eq sm"><i></i><i></i><i></i></span>' : '') + '</button>';
     }).join('') + '</div>';
     m.innerHTML = html; bindBQ(); return;
   }
 
   const list = function (from, to) {
     return '<div class="bkgrid">' + BB.slice(from, to).map(function (b, i) {
-      return '<button class="bkbtn" onclick="bibleChapters(' + (from + i) + ')">' + esc(b.n) + '</button>';
+      const on = (PL.on && PL.srcB === from + i);
+      return '<button class="bkbtn' + (on ? ' nowplay' : '') + '" onclick="bibleChapters(' + (from + i) + ')">' +
+        esc(b.n) + (on ? '<span class="eq sm"><i></i><i></i><i></i></span>' : '') + '</button>';
     }).join('') + '</div>';
   };
   html += '<div class="sectitle">Ветхий Завет · ' + ntStart + '</div>' + list(0, ntStart);
@@ -3254,7 +3471,7 @@ function openSettings() {
     <div class="block"><h3>Прочее</h3>
       <button class="rowbtn" onclick="exportNotes()">📤 Выгрузить заметки и избранное</button>
       <button class="rowbtn" onclick="closeVerse();openRoleScreen()">🔄 Сменить роль</button>
-      <p class="hint" style="margin-top:12px">Версия 11. Синодальный перевод — общественное достояние. «Современный» — редакция синодального текста, «Простыми словами» — пересказ смысла.</p>
+      <p class="hint" style="margin-top:12px">Версия 20. Синодальный перевод — общественное достояние. «Современный» — редакция синодального текста, «Простыми словами» — пересказ смысла.</p>
     </div>`;
   document.getElementById('detail').classList.add('open');
   document.getElementById('detail').scrollTop = 0;
@@ -3376,16 +3593,41 @@ function render(){
   }
   if(state.tab==='bible'){ renderBible(m); }
   if(state.tab==='fav'){
+    const keys = Object.keys(state.marks);
+    if (state.favView) {
+      const inCol = keys.filter(k => (state.marks[k].col||[]).indexOf(state.favView) >= 0);
+      m.innerHTML = `<div class="crumb"><button onclick="state.favView=null;render()">Избранное</button>›<b>${esc(state.favView)}</b></div>`
+        + (inCol.length ? inCol.map(markCardHTML).join('') : '<div class="empty">В этой подборке пока пусто.</div>')
+        + `<button class="rowbtn" style="margin-top:14px" onclick="delCol('${esc(state.favView)}')">🗑 Удалить подборку</button>`;
+      return;
+    }
     const list = VERSES.filter(v=>state.favs.includes(v.id));
     const alist = ANSWERS.filter(a=>state.favs.includes(a.id));
     const withNotes = Object.keys(state.notes).filter(k=>state.notes[k]&&state.notes[k].trim());
-    m.innerHTML = ((alist.length||list.length)
-        ? (alist.length? `<div class="sectitle">Избранные ответы · ${alist.length}</div>`+alist.map(a=>answerCardHTML(a,'')).join('') : '')
-          + (list.length? `<div class="sectitle">Избранные тексты · ${list.length}</div>`+list.map(v=>cardHTML(v,'')).join('') : '')
-        : `<div class="empty">Пока пусто.<br>Нажмите ★ на любом тексте или ответе.</div>`)
-      + (withNotes.length? `<div class="sectitle">С моими заметками · ${withNotes.length}</div>`
-          + withNotes.map(id=>{ const v=VERSES.find(x=>x.id===id); if(v) return cardHTML(v,'');
-              const a=ANSWERS.find(x=>x.id===id); return a?answerCardHTML(a,''):''; }).join('') : '');
+    let html = '';
+    if (state.cols.length) {
+      html += '<div class="sectitle">Мои подборки</div><div class="chips">'
+        + state.cols.map(n => {
+            const cnt = keys.filter(k => (state.marks[k].col||[]).indexOf(n) >= 0).length;
+            return `<button class="chip big" onclick="state.favView='${esc(n)}';render()">${esc(n)} · ${cnt}</button>`;
+          }).join('') + '</div>';
+    }
+    if (keys.length) {
+      const byColor = MK_COLORS.map(c => ({ c: c, n: keys.filter(k => state.marks[k].c === c.id).length }))
+                               .filter(x => x.n);
+      html += '<div class="sectitle">Выделенные стихи · ' + keys.length + '</div><div class="chips" style="margin-bottom:10px">'
+        + '<button class="chip big ' + (!state.mkFilter ? 'sel' : '') + '" onclick="state.mkFilter=0;render()">Все</button>'
+        + byColor.map(x => `<button class="chip big ${state.mkFilter===x.c.id?'sel':''}" onclick="state.mkFilter=${x.c.id};render()"><span class="cdot mini" style="background:${x.c.c}"></span> ${x.n}</button>`).join('')
+        + '</div>';
+      const shown = state.mkFilter ? keys.filter(k => state.marks[k].c === state.mkFilter) : keys;
+      html += shown.map(markCardHTML).join('');
+    }
+    if (alist.length) html += '<div class="sectitle">Избранные ответы · '+alist.length+'</div>'+alist.map(a=>answerCardHTML(a,'')).join('');
+    if (list.length)  html += '<div class="sectitle">Избранные тексты · '+list.length+'</div>'+list.map(v=>cardHTML(v,'')).join('');
+    if (withNotes.length) html += '<div class="sectitle">С моими заметками · '+withNotes.length+'</div>'
+        + withNotes.map(id=>{ const v=VERSES.find(x=>x.id===id); if(v) return cardHTML(v,'');
+            const a=ANSWERS.find(x=>x.id===id); return a?answerCardHTML(a,''):''; }).join('');
+    m.innerHTML = html || '<div class="empty">Пока пусто.<br><br>Нажмите ★ на тексте или ответе,<br>а в Библии — на номер стиха, чтобы выделить его цветом.</div>';
   }
 }
 
@@ -3538,6 +3780,8 @@ window.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeVerse(); clos
 /* Кнопка «Назад» на Android: закрываем открытый экран, а не выходим из приложения */
 window.__handleBack = function(){
   try{
+    if(document.getElementById('mkmodal').classList.contains('open')){ closeMark(); return true; }
+    if(state.favView){ state.favView=null; render(); return true; }
     if(document.getElementById('about').classList.contains('open')){ closeAbout(); return true; }
     if(document.getElementById('detail').classList.contains('open')){ closeVerse(); return true; }
     if(document.getElementById('roleScreen').style.display!=='none' && state.role){
