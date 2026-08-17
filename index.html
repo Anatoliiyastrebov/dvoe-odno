@@ -146,6 +146,11 @@ body.locked{overflow:hidden}
 #plrange::-moz-range-track{height:6px;border-radius:3px;background:rgba(255,255,255,.25)}
 #plrange::-moz-range-thumb{width:22px;height:22px;border:none;border-radius:50%;background:#e8c89a}
 .vnum{cursor:pointer}
+#vsel{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);
+  background:var(--card);font:inherit;font-size:15px;margin-bottom:10px}
+.srow{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.srow span{font-size:14px;color:var(--muted);min-width:78px;font-weight:600}
+.srow input[type=range]{flex:1;accent-color:var(--accent)}
 .steps{list-style:none;padding:0;margin:0}
 .steps li{background:var(--card);border:1px solid var(--line);border-radius:12px;
   padding:12px 14px;margin-bottom:8px;font-size:15px;display:flex;gap:10px}
@@ -235,6 +240,9 @@ window.onerror=function(m,s,l,c){var e=document.getElementById('errbar');
   <div class="sheet">
     <h2>О приложении</h2>
     <p>«Двое» — карманный сборник библейских текстов о браке с объяснением простым языком.</p>
+    <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);margin:0 0 8px">Голос озвучки</h3>
+    <div id="voicebox"></div>
+    <div style="height:14px"></div>
     <button class="rowbtn" onclick="exportNotes()">📤 Выгрузить мои заметки и избранное</button>
     <button class="rowbtn" onclick="openRoleScreen();closeAbout()">🔄 Сменить роль</button>
     <button class="rowbtn" onclick="closeAbout()">Закрыть</button>
@@ -2017,6 +2025,7 @@ let state = {
   theme: null,
   query: '',
   bmode: 'books', bb: null, bc: 1, bq: '',
+  voice: store.get('voice') || '', pitch: parseFloat(store.get('pitch') || '1'),
   favs: JSON.parse(store.get('favs') || '[]'),
   notes: JSON.parse(store.get('notes') || '{}')
 };
@@ -2114,7 +2123,7 @@ function bibleSearch(q) {
 }
 /* ---------- Проигрыватель: полоса перемотки по словам ---------- */
 const PL = { units: [], words: [], unitStart: [], i: -1, wi: 0, off: 0,
-             on: false, paused: false, drag: false, rate: 0.98 };
+             on: false, paused: false, drag: false, rate: parseFloat(store.get('rate') || '0.98') };
 
 function esc2(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
@@ -2175,16 +2184,31 @@ function speakFromWord(gi) {
   speakUnit(PL.units[w.u].text.slice(w.ci));
   drawBar();
 }
+function forSpeech(s) {
+  return String(s)
+    .replace(/[«»""„"]/g, ' ')   // кавычки движок читает как паузу-мусор
+    .replace(/[—–]/g, ',')       // длинное тире → запятая, живая пауза
+    .replace(/;/g, ',');
+}
 function speakUnit(text) {
+  text = forSpeech(text);
   try {
     if (window.AndroidTTS && window.AndroidTTS.speakUnit) {
-      window.AndroidTTS.setRate ? window.AndroidTTS.setRate(PL.rate) : 0;
+      try {
+        if (window.AndroidTTS.setRate) window.AndroidTTS.setRate(PL.rate);
+        if (window.AndroidTTS.setPitch) window.AndroidTTS.setPitch(state.pitch);
+        if (window.AndroidTTS.setVoice && state.voice) window.AndroidTTS.setVoice(state.voice);
+      } catch (e) {}
       window.AndroidTTS.speakUnit(text); return;
     }
     if (!('speechSynthesis' in window)) { alert('Это устройство не умеет читать вслух.'); playStop(); return; }
     speechSynthesis.cancel();
     const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = 'ru-RU'; utt.rate = PL.rate;
+    utt.lang = 'ru-RU'; utt.rate = PL.rate; utt.pitch = state.pitch;
+    if (state.voice) {
+      const v = (speechSynthesis.getVoices() || []).filter(x => x.name === state.voice)[0];
+      if (v) utt.voice = v;
+    }
     utt.onend = () => { if (PL.on && !PL.paused) window.__ttsDone(); };
     utt.onboundary = e => { if (e.charIndex != null) window.__ttsRange(e.charIndex, e.charIndex + (e.charLength || 0)); };
     speechSynthesis.speak(utt);
@@ -2260,6 +2284,56 @@ function updatePos() {
   const unitNo = w ? (w.u + 1) : 0;
   el.textContent = 'слово ' + (PL.wi + 1) + ' из ' + PL.words.length +
                    ' · ' + (state.tab === 'bible' ? 'стих ' : 'часть ') + unitNo;
+}
+
+/* Голоса, доступные на устройстве */
+function getVoices() {
+  try {
+    if (window.AndroidTTS && window.AndroidTTS.listVoices) {
+      const raw = JSON.parse(window.AndroidTTS.listVoices() || '[]');
+      return raw.map(v => ({ name: v.n, label: prettyVoice(v.n), net: !!v.net, q: v.q || 0 }));
+    }
+    if ('speechSynthesis' in window) {
+      return (speechSynthesis.getVoices() || [])
+        .filter(v => (v.lang || '').toLowerCase().indexOf('ru') === 0)
+        .map(v => ({ name: v.name, label: v.name, net: !v.localService, q: 0 }));
+    }
+  } catch (e) {}
+  return [];
+}
+function prettyVoice(n) {
+  let s = String(n).replace(/^ru-ru-x-/, '').replace(/-local$/, ' (в памяти)')
+                   .replace(/-network$/, ' (из сети, живее)');
+  return s;
+}
+/* Лучший голос: сетевые и высококачественные звучат живее */
+function bestVoice(list) {
+  const sorted = list.slice().sort((a, b) => (b.net ? 1 : 0) - (a.net ? 1 : 0) || b.q - a.q);
+  return sorted.length ? sorted[0].name : '';
+}
+function testVoice() {
+  PL.units = [{ el: document.createElement('div'), text: 'Так каждый из вас да любит свою жену, как самого себя.' }];
+  buildWords(); PL.i = 0; PL.off = 0; PL.on = false;
+  speakUnit(PL.units[0].text);
+}
+function renderVoiceBox() {
+  const box = document.getElementById('voicebox');
+  if (!box) return;
+  const list = getVoices();
+  if (!list.length) {
+    box.innerHTML = '<p style="font-size:13px;color:var(--muted);margin:0">Голоса появятся после первого запуска озвучки.</p>';
+    return;
+  }
+  if (!state.voice) { state.voice = bestVoice(list); store.set('voice', state.voice); }
+  box.innerHTML =
+    '<select id="vsel" onchange="state.voice=this.value;store.set(\'voice\',this.value);testVoice()">' +
+      list.map(v => '<option value="' + esc(v.name) + '"' + (v.name === state.voice ? ' selected' : '') + '>' +
+        esc(v.label) + '</option>').join('') + '</select>' +
+    '<div class="srow"><span>Скорость</span><input type="range" min="60" max="150" value="' + Math.round(PL.rate * 100) +
+      '" oninput="PL.rate=this.value/100;store.set(\'rate\',PL.rate)"></div>' +
+    '<div class="srow"><span>Тон</span><input type="range" min="70" max="130" value="' + Math.round(state.pitch * 100) +
+      '" oninput="state.pitch=this.value/100;store.set(\'pitch\',state.pitch)"></div>' +
+    '<button class="rowbtn" onclick="testVoice()">▶ Проверить голос</button>';
 }
 
 /* Панель проигрывателя */
@@ -2367,7 +2441,11 @@ function pickRole(r){
   renderBadge(); setTab('texts');
 }
 function openRoleScreen(){ document.getElementById('roleScreen').style.display='flex'; }
-function openAbout(){ document.getElementById('about').classList.add('open'); }
+function openAbout(){
+  document.getElementById('about').classList.add('open');
+  renderVoiceBox();
+  try { if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = renderVoiceBox; } catch(e){}
+}
 function closeAbout(){ document.getElementById('about').classList.remove('open'); }
 function renderBadge(){
   const b = document.getElementById('roleBadge');
