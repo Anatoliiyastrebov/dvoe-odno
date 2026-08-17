@@ -130,8 +130,6 @@ body.locked{overflow:hidden}
 .crumb{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .crumb button{font-size:13.5px;color:var(--accent);font-weight:600}
 .spknow{background:#fff3d0;border-radius:8px;box-shadow:0 0 0 4px #fff3d0}
-.wnow{background:var(--accent);color:#fff;border-radius:3px;padding:0;
-  box-shadow:0 0 0 2px var(--accent)}   /* тень вместо отступов — строка не перестраивается */
 #plbar{position:fixed;left:8px;right:8px;bottom:calc(58px + env(safe-area-inset-bottom));z-index:45;
   margin:0 auto;max-width:544px;background:#2c1e14;color:#fff;border-radius:16px;padding:10px 12px 6px;
   box-shadow:0 6px 24px rgba(0,0,0,.32)}
@@ -2674,9 +2672,9 @@ function bibleSearch(q) {
   return out;
 }
 /* ---------- Проигрыватель: полоса перемотки по словам ---------- */
-const PL = { units: [], words: [], unitStart: [], i: -1, wi: 0, off: 0,
+const PL = { units: [], i: -1,
              on: false, paused: false, drag: false, rate: parseFloat(store.get('rate') || '0.92'),
-             t0: 0, startChar: 0, timer: null,
+             t0: 0, timer: null,
              cps: 11, gotRange: false, lastGi: 0,
              lat: 0.5, callT: 0, started: false };
 function cpsKey() { return 'cps_' + (state.voice || 'default'); }
@@ -2696,73 +2694,50 @@ function collectUnits() {
     .filter(e => (e.textContent || '').trim().length > 1)
     .map(e => ({ el: e, text: (e.textContent || '').replace(/\s+/g, ' ').trim() }));
 }
-/* Раскладываем весь экран на слова: по ним и движется полоса */
-function buildWords() {
-  PL.words = []; PL.unitStart = [];
-  PL.units.forEach((u, ui) => {
-    PL.unitStart[ui] = PL.words.length;
-    const re = /\S+/g; let m;
-    while ((m = re.exec(u.text)) !== null) {
-      PL.words.push({ u: ui, ci: m.index, len: m[0].length });
-    }
-  });
-}
-function wordIndexAt(ui, charIndex) {
-  let lo = PL.unitStart[ui], hi = (ui + 1 < PL.unitStart.length ? PL.unitStart[ui + 1] : PL.words.length) - 1;
-  let best = lo;
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
-    if (PL.words[mid].ci <= charIndex) { best = mid; lo = mid + 1; } else { hi = mid - 1; }
-  }
-  return best;
-}
-
-/* Подсветка: кусок целиком + текущее слово внутри него */
-function showWord(gi) {
-  const w = PL.words[gi]; if (!w) return;
-  const u = PL.units[w.u]; if (!u) return;
-  if (!u.el.classList.contains('spknow')) {
-    clearMark();
-    u.el.dataset.plain = u.text;
-    u.el.classList.add('spknow');
-    try {
-      const r = u.el.getBoundingClientRect();
-      const h = window.innerHeight || 700;
-      if (r.top < 70 || r.bottom > h - 150) {          // прокручиваем, только если ушёл из виду
-        u.el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      }
-    } catch (e) {}
-  }
-  const txt = u.el.dataset.plain || u.text;
-  u.el.innerHTML = esc2(txt.slice(0, w.ci)) + '<span class="wnow">' +
-                   esc2(txt.slice(w.ci, w.ci + w.len)) + '</span>' + esc2(txt.slice(w.ci + w.len));
-  PL.wi = gi;
+/* Подсветка текущего куска (стиха или абзаца) */
+function showUnit(ui) {
+  const u = PL.units[ui];
+  if (!u) return;
+  clearMark();
+  u.el.classList.add('spknow');
+  PL.i = ui;
+  try {
+    const r = u.el.getBoundingClientRect();
+    const h = window.innerHeight || 700;
+    if (r.top < 70 || r.bottom > h - 150) u.el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  } catch (e) {}
 }
 function clearMark() {
-  document.querySelectorAll('.spknow').forEach(el => {
-    if (el.dataset.plain) el.textContent = el.dataset.plain;
-    el.classList.remove('spknow');
-  });
+  document.querySelectorAll('.spknow').forEach(el => el.classList.remove('spknow'));
 }
 
-/* Чтение с конкретного слова */
-function speakFromWord(gi) {
-  const w = PL.words[gi]; if (!w) { playStop(); return; }
-  PL.i = w.u; PL.off = w.ci; PL.on = true; PL.paused = false;
-  PL.startChar = w.ci; PL.t0 = Date.now(); PL.callT = Date.now();
-  PL.gotRange = false; PL.started = false; PL.lastGi = gi;
-  showWord(gi);
-  startTicker();
-  speakUnit(PL.units[w.u].text.slice(w.ci));
+/* Чтение с выбранного куска */
+function playFrom(ui) {
+  if (ui == null || ui < 0) ui = 0;
+  if (ui >= PL.units.length) { playStop(); return; }
+  PL.on = true; PL.paused = false; PL.started = false;
+  PL.callT = Date.now(); PL.t0 = Date.now();
+  showUnit(ui);
+  speakUnit(PL.units[ui].text);
+  armSafety();
   drawBar();
 }
+/* Страховка: если движок не сообщил об окончании, идём дальше сами */
+function armSafety() {
+  clearTimeout(PL.timer);
+  const u = PL.units[PL.i]; if (!u) return;
+  const ms = (u.text.length / (PL.cps * PL.rate)) * 1000 * 1.8 + PL.lat * 1000 + 2500;
+  PL.timer = setTimeout(function () {
+    if (PL.on && !PL.paused) window.__ttsDone();
+  }, ms);
+}
+/* Подготовка текста к чтению: живее интонация */
 function forSpeech(s) {
   let x = String(s)
-    .replace(/[«»""„"]/g, ' ')   // кавычки движок читает как мусор
-    .replace(/[—–]/g, ',')       // длинное тире → запятая, живая пауза
+    .replace(/[«»""„"]/g, ' ')
+    .replace(/[—–]/g, ',')
     .replace(/;/g, ',')
     .replace(/\.\.\./g, ',  ');
-  // добавка только в конце — на разметку слов не влияет
   if (!/[.!?]\s*$/.test(x)) x += '.';
   return x + ' ';
 }
@@ -2787,105 +2762,43 @@ function speakUnit(text) {
     }
     utt.onstart = () => window.__ttsStart();
     utt.onend = () => { if (PL.on && !PL.paused) window.__ttsDone(); };
-    utt.onboundary = e => { if (e.charIndex != null) window.__ttsRange(e.charIndex, e.charIndex + (e.charLength || 0)); };
     speechSynthesis.speak(utt);
   } catch (e) { playStop(); }
 }
+window.__ttsStart = function () {
+  const real = (Date.now() - PL.callT) / 1000;
+  if (real >= 0 && real < 3) { PL.lat = PL.lat * 0.5 + real * 0.5; store.set(latKey(), PL.lat.toFixed(2)); }
+  PL.t0 = Date.now(); PL.started = true;
+  armSafety();
+};
+window.__ttsRange = function () { if (!PL.started) { PL.t0 = Date.now(); PL.started = true; } };
 window.__ttsDone = function () {
+  clearTimeout(PL.timer);
   if (!PL.on || PL.paused) return;
-  // голос дочитал кусок — теперь точно известно, сколько знаков в секунду он читает
-  try {
+  try {                                   // запоминаем темп чтения этого голоса
     const sec = (Date.now() - PL.t0) / 1000 - (PL.started ? 0 : PL.lat);
-    const chars = (PL.units[PL.i].text.length - PL.startChar);
+    const chars = PL.units[PL.i].text.length;
     if (sec > 0.8 && chars > 25) {
       const obs = chars / sec / (PL.rate || 1);
       if (obs > 3 && obs < 50) { PL.cps = PL.cps * 0.4 + obs * 0.6; saveCps(); }
     }
   } catch (e) {}
-  const nextUnit = PL.i + 1;
-  if (nextUnit >= PL.units.length) { playStop(); return; }
-  speakFromWord(PL.unitStart[nextUnit]);
-};
-/* Движок начал звучать — только теперь запускаем отсчёт */
-window.__ttsStart = function () {
-  const real = (Date.now() - PL.callT) / 1000;
-  if (real >= 0 && real < 3) {
-    PL.lat = PL.lat * 0.5 + real * 0.5;      // запоминаем задержку этого голоса
-    store.set(latKey(), PL.lat.toFixed(2));
-  }
-  PL.t0 = Date.now();
-  PL.started = true;
-};
-
-function syncBar(gi) {
-  const r = document.getElementById('plrange');
-  if (r) r.value = gi;
-  updatePos();
-}
-/* Собственные часы: ведут подсветку между сообщениями движка и когда их нет вовсе */
-function startTicker() {
-  clearInterval(PL.timer);
-  PL.timer = setInterval(function () {
-    if (!PL.on || PL.paused || PL.drag) return;
-    // пока звук не начался — подсветка стоит на первом слове
-    let sec = (Date.now() - PL.t0) / 1000 - (PL.started ? 0 : PL.lat);
-    if (sec <= 0) return;
-    sec -= 0.15;                       // маленький запас, чтобы буква не опережала звук
-    if (sec <= 0) return;
-    const total = Math.max(1, PL.units[PL.i].text.length - PL.startChar);
-    let predSec = total / (PL.cps * PL.rate);
-
-    // Голос читает дольше, чем мы предполагали — значит он медленнее. Сбавляем на ходу.
-    if (!PL.gotRange && sec > predSec * 1.05) {
-      PL.cps = Math.max(4, PL.cps * 0.85); saveCps();
-      predSec = total / (PL.cps * PL.rate);
-    }
-
-    let frac = sec / predSec;
-    // пока движок молчит о словах, не добегаем до конца куска: ждём сигнала об окончании
-    if (!PL.gotRange) frac = Math.min(frac, 0.85);
-    frac = Math.min(frac, 1);
-
-    let gi = wordIndexAt(PL.i, PL.startChar + frac * total);
-    // если движок сообщает слова — не уходим от него дальше чем на три слова
-    if (PL.gotRange && gi > PL.lastGi + 3) gi = PL.lastGi + 3;
-    if (gi > PL.wi) { showWord(gi); syncBar(gi); }
-  }, 110);
-}
-function stopTicker() { clearInterval(PL.timer); PL.timer = null; }
-
-/* Сообщение движка — самое точное, по нему же подстраиваем скорость часов */
-window.__ttsRange = function (s) {
-  if (!PL.on || PL.drag) return;
-  const real = s + PL.off;
-  if (!PL.started) { PL.t0 = Date.now(); PL.started = true; }
-  const sec = (Date.now() - PL.t0) / 1000;
-  if (sec > 0.5 && real - PL.startChar > 8) {
-    const obs = (real - PL.startChar) / sec / (PL.rate || 1);
-    if (obs > 4 && obs < 45) {
-      PL.cps = PL.cps * 0.7 + obs * 0.3;      // плавное усреднение
-      store.set('cps', PL.cps.toFixed(2));
-    }
-  }
-  const gi = wordIndexAt(PL.i, real);
-  PL.gotRange = true; PL.lastGi = gi;
-  showWord(gi); syncBar(gi);
+  playFrom(PL.i + 1);
 };
 
 /* Управление */
 function playStart() {
   PL.units = collectUnits();
   if (!PL.units.length) return;
-  buildWords();
-  speakFromWord(0);
+  playFrom(0);
 }
 function playUnitAt(ui) {
-  PL.units = collectUnits(); buildWords();
-  speakFromWord(PL.unitStart[ui] || 0);
+  PL.units = collectUnits();
+  playFrom(ui);
 }
 function playStop() {
   PL.on = false; PL.paused = false; PL.i = -1;
-  stopTicker();
+  clearTimeout(PL.timer);
   try {
     if (window.AndroidTTS && window.AndroidTTS.stop) window.AndroidTTS.stop();
     else if ('speechSynthesis' in window) speechSynthesis.cancel();
@@ -2895,47 +2808,38 @@ function playStop() {
 function playPause() {
   if (!PL.on) return;
   if (!PL.paused) {
-    PL.paused = true; stopTicker();
+    PL.paused = true; clearTimeout(PL.timer);
     try { if (window.AndroidTTS) window.AndroidTTS.stop(); else speechSynthesis.cancel(); } catch (e) {}
     drawBar();
   } else {
     PL.paused = false;
-    speakFromWord(PL.wi);
+    playFrom(PL.i);
   }
 }
+function playNext() { if (PL.on) playFrom(PL.i + 1); }
+function playPrev() { if (PL.on) playFrom(Math.max(0, PL.i - 1)); }
 function playRate() {
   const steps = [0.75, 0.92, 1.15, 1.4];
-  let i = 0, best = 9;
-  steps.forEach(function (v, k) { const d = Math.abs(v - PL.rate); if (d < best) { best = d; i = k; } });
-  applyRate(steps[(i + 1) % steps.length]);
+  let k = 0, best = 9;
+  steps.forEach(function (v, i) { const d = Math.abs(v - PL.rate); if (d < best) { best = d; k = i; } });
+  applyRate(steps[(k + 1) % steps.length]);
 }
-/* Меняем скорость — и сразу пересобираем чтение с текущего слова, иначе подсветка разъедется */
 function applyRate(v) {
   PL.rate = Math.round(v * 100) / 100;
   store.set('rate', PL.rate);
-  if (PL.on && !PL.paused) speakFromWord(PL.wi); else drawBar();
+  if (PL.on && !PL.paused) playFrom(PL.i); else drawBar();
   const rv = document.getElementById('rv'); if (rv) rv.textContent = PL.rate.toFixed(2);
 }
 function stopSpeak() { playStop(); }
 
-/* Перетаскивание полосы */
-function seekPreview(v) {
-  PL.drag = true;
-  showWord(+v);
-  updatePos();
-}
-function seekCommit(v) {
-  PL.drag = false;
-  if (PL.paused) { PL.wi = +v; showWord(+v); updatePos(); return; }
-  speakFromWord(+v);
-}
-function updatePos() {
+/* Полоса: перемотка по стихам */
+function seekPreview(v) { PL.drag = true; showUnit(+v); updatePos(+v); }
+function seekCommit(v) { PL.drag = false; playFrom(+v); }
+function updatePos(pos) {
   const el = document.getElementById('plpos');
   if (!el) return;
-  const w = PL.words[PL.wi];
-  const unitNo = w ? (w.u + 1) : 0;
-  el.textContent = 'слово ' + (PL.wi + 1) + ' из ' + PL.words.length +
-                   ' · ' + (state.tab === 'bible' ? 'стих ' : 'часть ') + unitNo;
+  const i = (pos == null ? PL.i : pos);
+  el.textContent = (state.tab === 'bible' ? 'стих ' : 'часть ') + (i + 1) + ' из ' + PL.units.length;
 }
 
 /* Голоса, доступные на устройстве */
@@ -2964,9 +2868,8 @@ function bestVoice(list) {
   return sorted.length ? sorted[0].name : '';
 }
 function testVoice() {
-  PL.units = [{ el: document.createElement('div'), text: 'Так каждый из вас да любит свою жену, как самого себя.' }];
-  buildWords(); PL.i = 0; PL.off = 0; PL.on = false;
-  speakUnit(PL.units[0].text);
+  playStop();
+  speakUnit('Так каждый из вас да любит свою жену, как самого себя.');
 }
 function renderVoiceBox() {
   const box = document.getElementById('voicebox');
@@ -2998,16 +2901,7 @@ document.addEventListener('click', function (e) {
   for (let k = 0; k < PL.units.length; k++) if (PL.units[k].el === el) { ui = k; break; }
   if (ui < 0) return;
   e.preventDefault(); e.stopPropagation();
-  let gi = PL.unitStart[ui];
-  try {                                   // если удалось — начинаем с того слова, куда попал палец
-    const r = document.caretRangeFromPoint ? document.caretRangeFromPoint(e.clientX, e.clientY) : null;
-    if (r) {
-      const pre = document.createRange();
-      pre.selectNodeContents(el); pre.setEnd(r.startContainer, r.startOffset);
-      gi = wordIndexAt(ui, pre.toString().length);
-    }
-  } catch (err) {}
-  speakFromWord(gi);
+  playFrom(ui);
 }, true);
 
 /* Панель проигрывателя */
@@ -3016,37 +2910,40 @@ function drawBar() {
   if (!PL.on) { if (bar) bar.remove(); return; }
   if (!bar) { bar = document.createElement('div'); bar.id = 'plbar'; document.body.appendChild(bar); }
   bar.innerHTML =
-    '<input type="range" id="plrange" min="0" max="' + Math.max(0, PL.words.length - 1) + '" value="' + PL.wi + '" ' +
+    '<input type="range" id="plrange" min="0" max="' + Math.max(0, PL.units.length - 1) + '" value="' + PL.i + '" ' +
       'oninput="seekPreview(this.value)" onchange="seekCommit(this.value)">' +
     '<div class="plrow">' +
       '<button onclick="playPause()" class="big">' + (PL.paused ? '▶' : '⏸') + '</button>' +
-      '<button onclick="seekCommit(Math.max(0,PL.wi-12))">⏪</button>' +
-      '<button onclick="seekCommit(Math.min(PL.words.length-1,PL.wi+12))">⏩</button>' +
+      '<button onclick="playPrev()">⏮</button>' +
+      '<button onclick="playNext()">⏭</button>' +
       '<span class="pos" id="plpos"></span>' +
       '<button onclick="playRate()" class="rate">' + PL.rate.toFixed(2).replace(/0$/, '') + '×</button>' +
       '<button onclick="playStop()">✕</button>' +
     '</div>';
   updatePos();
 }
+
 /* ---------- Экран Библии ---------- */
 function bibleOpen(b, c) {
-  stopSpeak();
+  playStop();
   state.bb = b; state.bc = c; state.bmode = 'text'; state.bq = '';
   render(); window.scrollTo(0, 0);
 }
-function bibleChapters(b) { stopSpeak(); state.bb = b; state.bmode = 'chapters'; render(); window.scrollTo(0, 0); }
-function bibleBooks() { stopSpeak(); state.bmode = 'books'; state.bq = ''; render(); window.scrollTo(0, 0); }
+function bibleChapters(b) { playStop(); state.bb = b; state.bmode = 'chapters'; render(); window.scrollTo(0, 0); }
+function bibleBooks() { playStop(); state.bmode = 'books'; state.bq = ''; render(); window.scrollTo(0, 0); }
 function bibleGo() {
-  const q = (state.bq || '').trim();
-  const r = parseRef(q);
-  if (r) { bibleOpen(r.b, r.c); if (r.v) setTimeout(() => {
+  const r = parseRef((state.bq || '').trim());
+  if (r) {
+    bibleOpen(r.b, r.c);
+    if (r.v) setTimeout(function () {
       const el = document.getElementById('v' + r.v);
-      if (el) { el.classList.add('hit'); el.scrollIntoView({ block: 'center' }); } }, 60); }
+      if (el) { el.classList.add('hit'); el.scrollIntoView({ block: 'center' }); }
+    }, 60);
+  }
 }
 function renderBible(m) {
   if (!HAS_BIBLE) {
-    m.innerHTML = '<div class="empty">Полный текст Библии в этой версии приложения ещё не подключён.<br><br>' +
-      'Он появится после следующей сборки.</div>';
+    m.innerHTML = '<div class="empty">Полный текст Библии в этой версии ещё не подключён.<br><br>Он появится после следующей сборки.</div>';
     return;
   }
   const q = (state.bq || '').trim();
@@ -3061,25 +2958,27 @@ function renderBible(m) {
     }
     if (res.length) {
       html += '<div class="sectitle">Найдено стихов: ' + res.length + (res.length >= 120 ? ' и более' : '') + '</div>';
-      html += res.map(x => '<div class="card" onclick="bibleOpen(' + x.b + ',' + x.c + ')">' +
-        '<div class="ref">' + esc(BB[x.b].n) + ' ' + x.c + ':' + x.v + '</div>' +
-        '<p class="teaser" style="font-family:Georgia,serif;font-size:15.5px">' + hl(x.t, q) + '</p></div>').join('');
+      html += res.map(function (x) {
+        return '<div class="card" onclick="bibleOpen(' + x.b + ',' + x.c + ')">' +
+          '<div class="ref">' + esc(BB[x.b].n) + ' ' + x.c + ':' + x.v + '</div>' +
+          '<p class="teaser" style="font-family:Georgia,serif;font-size:15.5px">' + hl(x.t, q) + '</p></div>';
+      }).join('');
     } else if (!r) {
       html += '<div class="empty">Ничего не найдено.<br>Проверьте написание или попробуйте другое слово.</div>';
     }
-    m.innerHTML = html;
-    bindBQ();
-    return;
+    m.innerHTML = html; bindBQ(); return;
   }
 
   if (state.bmode === 'text' && state.bb != null) {
     const bk = BB[state.bb], ch = state.bc, vv = bk.c[ch - 1] || [];
     html += '<div class="crumb"><button onclick="bibleBooks()">Книги</button>›' +
       '<button onclick="bibleChapters(' + state.bb + ')">' + esc(bk.n) + '</button>›<b>Глава ' + ch + '</b></div>';
-    html += '<button class="playbtn" onclick="playStart(this)">🔊 Слушать главу</button>' +
+    html += '<button class="playbtn" onclick="playStart()">🔊 Слушать главу</button>' +
       '<div class="hint">Во время чтения коснитесь любого стиха — голос продолжит с него</div>';
-    html += '<div style="margin-top:14px">' + vv.map((tx, i) =>
-      '<div class="vrow" id="v' + (i + 1) + '"><span class="vnum" onclick="playUnitAt(' + i + ')">' + (i + 1) + '</span><span class="spk">' + esc(tx) + '</span></div>').join('') + '</div>';
+    html += '<div style="margin-top:14px">' + vv.map(function (tx, i) {
+      return '<div class="vrow" id="v' + (i + 1) + '"><span class="vnum" onclick="playUnitAt(' + i + ')">' +
+        (i + 1) + '</span><span class="spk">' + esc(tx) + '</span></div>';
+    }).join('') + '</div>';
     html += '<div class="chnav">' +
       '<button ' + (ch <= 1 ? 'disabled' : 'onclick="bibleOpen(' + state.bb + ',' + (ch - 1) + ')"') + '>← Глава ' + (ch - 1) + '</button>' +
       '<button ' + (ch >= bk.c.length ? 'disabled' : 'onclick="bibleOpen(' + state.bb + ',' + (ch + 1) + ')"') + '>Глава ' + (ch + 1) + ' →</button></div>';
@@ -3089,13 +2988,17 @@ function renderBible(m) {
   if (state.bmode === 'chapters' && state.bb != null) {
     const bk = BB[state.bb];
     html += '<div class="crumb"><button onclick="bibleBooks()">Книги</button>›<b>' + esc(bk.n) + '</b></div>';
-    html += '<div class="chgrid">' + bk.c.map((_, i) =>
-      '<button class="chbtn" onclick="bibleOpen(' + state.bb + ',' + (i + 1) + ')">' + (i + 1) + '</button>').join('') + '</div>';
+    html += '<div class="chgrid">' + bk.c.map(function (_, i) {
+      return '<button class="chbtn" onclick="bibleOpen(' + state.bb + ',' + (i + 1) + ')">' + (i + 1) + '</button>';
+    }).join('') + '</div>';
     m.innerHTML = html; bindBQ(); return;
   }
 
-  const list = (from, to) => '<div class="bkgrid">' + BB.slice(from, to).map((b, i) =>
-    '<button class="bkbtn" onclick="bibleChapters(' + (from + i) + ')">' + esc(b.n) + '</button>').join('') + '</div>';
+  const list = function (from, to) {
+    return '<div class="bkgrid">' + BB.slice(from, to).map(function (b, i) {
+      return '<button class="bkbtn" onclick="bibleChapters(' + (from + i) + ')">' + esc(b.n) + '</button>';
+    }).join('') + '</div>';
+  };
   html += '<div class="sectitle">Ветхий Завет · ' + ntStart + '</div>' + list(0, ntStart);
   html += '<div class="sectitle">Новый Завет · ' + (BB.length - ntStart) + '</div>' + list(ntStart, BB.length);
   m.innerHTML = html; bindBQ();
@@ -3103,12 +3006,14 @@ function renderBible(m) {
 function bindBQ() {
   const i = document.getElementById('bq');
   if (!i) return;
-  i.oninput = e => { state.bq = e.target.value; const p = e.target.selectionStart; render();
-    const n = document.getElementById('bq'); if (n) { n.focus(); n.setSelectionRange(p, p); } };
-  i.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); bibleGo(); } };
+  i.oninput = function (e) {
+    state.bq = e.target.value;
+    const p = e.target.selectionStart; render();
+    const n = document.getElementById('bq'); if (n) { n.focus(); n.setSelectionRange(p, p); }
+  };
+  i.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); bibleGo(); } };
   if (state.bq) i.focus();
 }
-
 
 /* ================= НАСТРОЙКИ ================= */
 const SAMPLES = [
@@ -3143,7 +3048,7 @@ function openSettings() {
       </div>
       <div class="verse spk" id="sampleBox">${esc(SAMPLES[sampleIdx].t)}</div>
       <button class="playbtn" style="margin-top:12px" onclick="speakSample()">🔊 Прослушать</button>
-      <p class="hint">Во время проверки видно подсветку слов — так же, как при чтении глав.</p>
+      <p class="hint">Читаемый отрывок подсвечивается — так же, как стих при чтении главы.</p>
     </div>
 
     <div class="block"><h3>Скорость и тон</h3>
@@ -3155,7 +3060,7 @@ function openSettings() {
       <div class="srow"><span>Тон</span>
         <input type="range" min="75" max="125" value="${Math.round(state.pitch * 100)}"
                oninput="state.pitch=this.value/100;store.set('pitch',state.pitch);document.getElementById('pv').textContent=state.pitch.toFixed(2)"
-               onchange="if(PL.on&&!PL.paused)speakFromWord(PL.wi)">
+               onchange="if(PL.on&&!PL.paused)playFrom(PL.i)">
         <b id="pv">${state.pitch.toFixed(2)}</b></div>
       <p class="hint">Спокойное чтение обычно получается на скорости около 0,90 и тоне около 0,95.</p>
     </div>
@@ -3188,8 +3093,7 @@ function speakSample() {
   if (!box) return;
   if (PL.on) { playStop(); return; }
   PL.units = [{ el: box, text: SAMPLES[sampleIdx].t }];
-  buildWords();
-  speakFromWord(0);
+  playFrom(0);
 }
 
 /* ================= НАВИГАЦИЯ ================= */
