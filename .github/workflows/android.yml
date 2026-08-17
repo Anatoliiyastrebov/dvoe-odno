@@ -21,7 +21,7 @@ jobs:
       - name: Скачать полный текст Библии (синодальный перевод)
         run: |
           python3 - <<'PYEOF'
-          import json, urllib.request, os, sys
+          import json, os, re, io, zipfile, urllib.request
 
           CANON = ["Бытие","Исход","Левит","Числа","Второзаконие","Иисуса Навина","Судей","Руфь",
           "1-я Царств","2-я Царств","3-я Царств","4-я Царств","1-я Паралипоменон","2-я Паралипоменон",
@@ -33,102 +33,211 @@ jobs:
           "Колоссянам","1-е Фессалоникийцам","2-е Фессалоникийцам","1-е Тимофею","2-е Тимофею","Титу",
           "Филимону","Евреям","Откровение"]
 
-          def get(url, timeout=90):
-              req = urllib.request.Request(url, headers={"User-Agent": "dvoe-app-build"})
-              with urllib.request.urlopen(req, timeout=timeout) as r:
-                  return json.loads(r.read().decode("utf-8", "replace"))
+          USFM_ORDER = ["GEN","EXO","LEV","NUM","DEU","JOS","JDG","RUT","1SA","2SA","1KI","2KI","1CH","2CH",
+          "EZR","NEH","EST","JOB","PSA","PRO","ECC","SNG","ISA","JER","LAM","EZK","DAN","HOS","JOL","AMO",
+          "OBA","JON","MIC","NAM","HAB","ZEP","HAG","ZEC","MAL","MAT","MRK","LUK","JHN","ACT","JAS","1PE",
+          "2PE","1JN","2JN","3JN","JUD","ROM","1CO","2CO","GAL","EPH","PHP","COL","1TH","2TH","1TI","2TI",
+          "TIT","PHM","HEB","REV"]
+
+          def log(*a): print(*a, flush=True)
 
           def clean(s):
-              return " ".join(str(s).replace(" ", " ").split())
+              return " ".join(str(s).replace("\u00a0", " ").split())
 
-          def norm_books(raw):
-              """Приводим любой из известных форматов к [{n: имя, c: [[стих,...],...]}]"""
+          def fetch(url, timeout=120):
+              req = urllib.request.Request(url, headers={"User-Agent": "dvoe-app-build/1.0"})
+              with urllib.request.urlopen(req, timeout=timeout) as r:
+                  return r.read()
+
+          def fetch_json(url, timeout=120):
+              return json.loads(fetch(url, timeout).decode("utf-8", "replace"))
+
+          def count(books):
+              return sum(len(c) for b in books for c in b["c"])
+
+          def ok(books):
+              return len(books) >= 60 and count(books) >= 25000
+
+          # ---------- нормализаторы ----------
+
+          def from_book_chapters(raw):
+              """[{name, chapters: [[стих,...],...]}] или главы объектами"""
               books = []
-              # Формат 1: [{abbrev, name, chapters: [[стих,...],...]}]
-              if isinstance(raw, list) and raw and isinstance(raw[0], dict) and "chapters" in raw[0]:
-                  for i, b in enumerate(raw):
-                      name = clean(b.get("name") or b.get("book") or (CANON[i] if i < len(CANON) else "Книга %d" % (i+1)))
-                      chs = []
-                      for c in b["chapters"]:
-                          if isinstance(c, list):
-                              chs.append([clean(v) for v in c])
-                          elif isinstance(c, dict):
-                              vs = c.get("verses") or []
-                              if isinstance(vs, dict):
-                                  vs = [vs[k] for k in sorted(vs, key=lambda x: int(x))]
-                              chs.append([clean(v.get("text") if isinstance(v, dict) else v) for v in vs])
-                      books.append({"n": name, "c": chs})
+              if not (isinstance(raw, list) and raw and isinstance(raw[0], dict) and "chapters" in raw[0]):
                   return books
-              # Формат 2: плоский список стихов
-              if isinstance(raw, list) and raw and isinstance(raw[0], dict) and "text" in raw[0]:
+              for i, b in enumerate(raw):
+                  name = clean(b.get("name") or b.get("book") or (CANON[i] if i < len(CANON) else "Книга %d" % (i + 1)))
+                  chs = []
+                  for c in b["chapters"]:
+                      if isinstance(c, list):
+                          chs.append([clean(v) for v in c])
+                      elif isinstance(c, dict):
+                          vs = c.get("verses") or []
+                          if isinstance(vs, dict):
+                              vs = [vs[k] for k in sorted(vs, key=lambda x: int(x))]
+                          chs.append([clean(v.get("text") if isinstance(v, dict) else v) for v in vs])
+                  books.append({"n": name, "c": chs})
+              return books
+
+          def from_flat(raw):
+              """[{book|book_number, chapter, verse, text}, ...]"""
+              if not (isinstance(raw, list) and raw and isinstance(raw[0], dict) and "text" in raw[0]):
+                  return []
+              acc, names = {}, {}
+              for v in raw:
+                  bi = v.get("book") or v.get("book_number") or v.get("book_id") or v.get("bookid")
+                  if bi is None:
+                      continue
+                  try:
+                      bi = int(bi)
+                  except (TypeError, ValueError):
+                      continue
+                  nm = v.get("book_name") or v.get("name")
+                  if nm:
+                      names[bi] = clean(nm)
+                  ch, vs = int(v.get("chapter", 1)), int(v.get("verse", 1))
+                  acc.setdefault(bi, {}).setdefault(ch, {})[vs] = clean(v.get("text"))
+              books = []
+              for k in sorted(acc):
+                  name = names.get(k) or (CANON[k - 1] if 1 <= k <= len(CANON) else "Книга %s" % k)
+                  books.append({"n": name, "c": [[acc[k][c][x] for x in sorted(acc[k][c])] for c in sorted(acc[k])]})
+              return books
+
+          USFM_MARK = re.compile(r"\\[a-z0-9\-]+\*?\s?")
+          USFM_WORD = re.compile(r"\\w\s+([^|\\]+)(\|[^\\]*)?\\w\*")
+
+          def from_usfm_zip(data):
+              """Архив с файлами .usfm — стандартный церковный формат"""
+              books = []
+              try:
+                  zf = zipfile.ZipFile(io.BytesIO(data))
+              except Exception as e:
+                  log("   архив не читается:", e)
+                  return []
+              files = [n for n in zf.namelist() if n.lower().endswith((".usfm", ".sfm"))]
+              log("   файлов в архиве:", len(files))
+              got = {}
+              for fn in files:
+                  try:
+                      txt = zf.read(fn).decode("utf-8", "replace")
+                  except Exception:
+                      continue
+                  m = re.search(r"\\id\s+(\w+)", txt)
+                  code = m.group(1).upper() if m else None
+                  if code not in USFM_ORDER:
+                      continue
+                  hm = re.search(r"\\(?:toc2|toc1|h)\s+([^\n\r\\]+)", txt)
+                  idx = USFM_ORDER.index(code)
+                  name = clean(hm.group(1)) if hm else CANON[idx]
+                  body = txt.split("\\c ", 1)
+                  if len(body) < 2:
+                      continue
+                  chapters = []
+                  for chunk in ("\\c " + body[1]).split("\\c ")[1:]:
+                      verses = []
+                      parts = chunk.split("\\v ")
+                      for vp in parts[1:]:
+                          vm = re.match(r"\s*(\d+[a-z]?)\s*(.*)", vp, re.S)
+                          if not vm:
+                              continue
+                          t = vm.group(2)
+                          t = USFM_WORD.sub(r"\1", t)
+                          t = re.sub(r"\\f\s.*?\\f\*", "", t, flags=re.S)
+                          t = re.sub(r"\\x\s.*?\\x\*", "", t, flags=re.S)
+                          t = USFM_MARK.sub(" ", t)
+                          verses.append(clean(t))
+                      chapters.append(verses)
+                  got[idx] = {"n": name, "c": chapters}
+              for i in sorted(got):
+                  books.append(got[i])
+              return books
+
+          # ---------- источники ----------
+
+          def src_thiago():
+              return from_book_chapters(fetch_json(
+                  "https://raw.githubusercontent.com/thiagobodruk/bible/master/json/ru_synodal.json"))
+
+          def src_thiago_cdn():
+              return from_book_chapters(fetch_json(
+                  "https://cdn.jsdelivr.net/gh/thiagobodruk/bible@master/json/ru_synodal.json"))
+
+          def src_bolls():
+              raw = fetch_json("https://bolls.life/static/translations/SYNO.json")
+              b = from_flat(raw)
+              return b or from_book_chapters(raw)
+
+          def src_getbible():
+              idx = fetch_json("https://api.getbible.net/v2/synodal/books.json")
+              nums = [b["nr"] for b in idx] if isinstance(idx, list) else []
+              out = []
+              for nr in nums:
+                  d = fetch_json("https://api.getbible.net/v2/synodal/%s.json" % nr, timeout=60)
+                  i = int(nr) - 1
+                  name = clean(d.get("name") or (CANON[i] if 0 <= i < len(CANON) else "Книга %s" % nr))
                   acc = {}
-                  for v in raw:
-                      bi = v.get("book") or v.get("book_number") or v.get("book_id")
-                      ch = int(v.get("chapter", 1)); vs = int(v.get("verse", 1))
-                      acc.setdefault(bi, {}).setdefault(ch, {})[vs] = clean(v.get("text"))
-                  for k in sorted(acc, key=lambda x: int(x)):
-                      idx = int(k) - 1
-                      name = CANON[idx] if 0 <= idx < len(CANON) else "Книга %s" % k
-                      chs = [[acc[k][c][x] for x in sorted(acc[k][c])] for c in sorted(acc[k])]
-                      books.append({"n": name, "c": chs})
-                  return books
-              return []
+                  for v in d.get("verses", []):
+                      acc.setdefault(int(v["chapter"]), {})[int(v["verse"])] = clean(v["text"])
+                  out.append({"n": name, "c": [[acc[c][x] for x in sorted(acc[c])] for c in sorted(acc)]})
+              return out
+
+          def src_ebible():
+              return from_usfm_zip(fetch("https://ebible.org/Scriptures/russyn_usfm.zip", timeout=180))
 
           SOURCES = [
-            "https://raw.githubusercontent.com/thiagobodruk/bible/master/json/ru_synodal.json",
-            "https://raw.githubusercontent.com/thiagobodruk/biblia/master/json/ru_synodal.json",
-            "https://bolls.life/static/translations/SYNO.json",
+              ("thiagobodruk (github)", src_thiago),
+              ("thiagobodruk (jsdelivr)", src_thiago_cdn),
+              ("bolls.life", src_bolls),
+              ("getbible v2", src_getbible),
+              ("eBible.org USFM", src_ebible),
           ]
 
-          books = []
-          for url in SOURCES:
-              try:
-                  print("Пробую:", url)
-                  data = get(url)
-                  cand = norm_books(data)
-                  nv = sum(len(c) for b in cand for c in b["c"])
-                  print("  книг: %d, стихов: %d" % (len(cand), nv))
-                  if len(cand) >= 60 and nv >= 25000:
-                      books = cand
-                      break
-              except Exception as e:
-                  print("  не вышло:", e)
+          def main():
+              books, used = [], None
+              for name, fn in SOURCES:
+                  try:
+                      log("Источник:", name)
+                      cand = fn()
+                      log("   книг: %d, стихов: %d" % (len(cand), count(cand)))
+                      if ok(cand):
+                          books, used = cand, name
+                          break
+                      log("   не подходит, пробую следующий")
+                  except Exception as e:
+                      log("   ошибка:", type(e).__name__, e)
 
-          if not books:
-              try:
-                  print("Пробую getbible v2")
-                  idx = get("https://api.getbible.net/v2/synodal/books.json")
-                  nums = [b["nr"] for b in idx] if isinstance(idx, list) else []
-                  tmp = []
-                  for nr in nums:
-                      d = get("https://api.getbible.net/v2/synodal/%s.json" % nr, timeout=60)
-                      name = clean(d.get("name") or (CANON[nr-1] if nr <= len(CANON) else "Книга %d" % nr))
-                      acc = {}
-                      for v in d.get("verses", []):
-                          acc.setdefault(int(v["chapter"]), {})[int(v["verse"])] = clean(v["text"])
-                      tmp.append({"n": name, "c": [[acc[c][x] for x in sorted(acc[c])] for c in sorted(acc)]})
-                  nv = sum(len(c) for b in tmp for c in b["c"])
-                  print("  книг: %d, стихов: %d" % (len(tmp), nv))
-                  if len(tmp) >= 60 and nv >= 25000:
-                      books = tmp
-              except Exception as e:
-                  print("  не вышло:", e)
+              env = os.environ.get("GITHUB_ENV")
+              summary = os.environ.get("GITHUB_STEP_SUMMARY")
 
-          if books:
-              nv = sum(len(c) for b in books for c in b["c"])
-              with open("bible.js", "w", encoding="utf-8") as f:
-                  f.write("const BIBLE=")
-                  json.dump({"books": books}, f, ensure_ascii=False, separators=(",", ":"))
-                  f.write(";")
-              print("ГОТОВО: %d книг, %d глав, %d стихов, %.1f МБ"
-                    % (len(books), sum(len(b["c"]) for b in books), nv, os.path.getsize("bible.js")/1048576))
-              print("Первая книга:", books[0]["n"], "| последняя:", books[-1]["n"])
-              print("Пример — Иоанна 3:16 ищем по названию:",
-                    next((b["c"][2][15][:60] for b in books if "оанн" in b["n"] and len(b["c"]) > 2), "нет"))
-          else:
-              with open("bible.js", "w", encoding="utf-8") as f:
-                  f.write("/* текст Библии не загрузился при этой сборке */")
-              print("ВНИМАНИЕ: текст Библии не удалось скачать. Приложение соберётся без него.")
+              if books:
+                  with open("bible.js", "w", encoding="utf-8") as f:
+                      f.write("const BIBLE=")
+                      json.dump({"books": books}, f, ensure_ascii=False, separators=(",", ":"))
+                      f.write(";")
+                  mb = os.path.getsize("bible.js") / 1048576.0
+                  msg = ("Библия загружена: %d книг, %d глав, %d стихов, %.1f МБ (источник: %s)"
+                         % (len(books), sum(len(b["c"]) for b in books), count(books), mb, used))
+                  log(msg)
+                  log("Первая книга:", books[0]["n"], "| последняя:", books[-1]["n"])
+                  for probe in ("Бытие", "Псал", "оанн", "Откров"):
+                      hit = next((b for b in books if probe.lower() in b["n"].lower()), None)
+                      if hit:
+                          log("  %-8s -> %s, глав: %d, стихов в 1-й главе: %d"
+                              % (probe, hit["n"], len(hit["c"]), len(hit["c"][0]) if hit["c"] else 0))
+              else:
+                  with open("bible.js", "w", encoding="utf-8") as f:
+                      f.write("/* текст Библии не загрузился при этой сборке */")
+                  msg = "Библия НЕ загрузилась — приложение собрано без неё"
+                  log(msg)
+
+              if env:
+                  with open(env, "a", encoding="utf-8") as f:
+                      f.write("BIBLE_STATUS=%s\n" % msg)
+              if summary:
+                  with open(summary, "a", encoding="utf-8") as f:
+                      f.write("### %s\n" % msg)
+
+          main()
           PYEOF
 
       - name: Сохранить текст Библии в репозиторий
@@ -426,5 +535,7 @@ jobs:
             3. Иконка появится на рабочем столе.
 
             Интернет не нужен: все тексты и полная Библия внутри приложения.
+
+            ${{ env.BIBLE_STATUS }}
           files: out/dvoe.apk
           make_latest: true
